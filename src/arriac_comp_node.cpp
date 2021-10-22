@@ -2,6 +2,7 @@
 #include "std_msgs/String.h"
 #include "std_srvs/Trigger.h"
 #include "osrf_gear/Order.h"
+#include "osrf_gear/GetMaterialLocations.h"
 
 //Global order vector
 std::vector<osrf_gear::Order> order_vector;
@@ -39,7 +40,7 @@ int main(int argc, char **argv)
     /**
      * Create the material location service for determining location of products
      */
-    ros::ServiceClient material_location_client = n.serviceClient<std_srvs::Trigger>("/ariac/material_locations");
+    ros::ServiceClient material_location_client = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
     int service_call_succeeded;
 
@@ -80,16 +81,33 @@ int main(int argc, char **argv)
 
     while (ros::ok())
     {
-        ROS_INFO("HI");
+        // ROS_INFO("HI");
         //Look at orders if there are any waiting:
         if(!order_vector.empty()){
             //Loop through each shipment
             for(osrf_gear::Shipment shipment : order_vector.front().shipments){
                 //And each product within
                 for(osrf_gear::Product product : shipment.products){
-                    std::string product_type = product.type;
-                    ROS_INFO(product_type.c_str());
-                    ROS_INFO(material_location_client.call(product_type).c_str());
+                    std::string product_type = product.type.c_str();
+                    ROS_INFO("%s", product_type);
+                    // std_srvs::Trigger mat_loc;
+                    osrf_gear::GetMaterialLocations srv;
+                    srv.request.material_type = product_type;
+                    // int call_succeeded = material_location_client.call(srv);
+                    // ROS_INFO("%d", call_succeeded);
+                    if(material_location_client.call(srv)){
+                        for(osrf_gear::StorageUnit unit : srv.response.storage_units){
+                            ROS_INFO("%s", unit.unit_id.c_str());
+                        }
+                    }
+                    
+                    // ROS_INFO("%s", )
+                    // // ROS_INFO(product_type);
+
+                    // ROS_INFO("%s", product_type.c_str());
+                    // ROS_INFO("hi");
+                    // // ROS_INFO(product_type.c_str());
+                    // ROS_INFO(material_location_client.call(product_type.c_str()));
                 }
             }
 
