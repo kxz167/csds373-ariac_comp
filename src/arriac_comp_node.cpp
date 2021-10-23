@@ -3,9 +3,16 @@
 #include "std_srvs/Trigger.h"
 #include "osrf_gear/Order.h"
 #include "osrf_gear/GetMaterialLocations.h"
+#include "osrf_gear/LogicalCameraImage.h"
+#include "osrf_gear/Model.h"
+#include "geometry_msgs/Pose.h"
+#include <map>
 
 //Global order vector
 std::vector<osrf_gear::Order> order_vector;
+std::map<std::string, std::vector<osrf_gear::Model>> items;
+// std::map<std::string, std::string> CAMERAS;
+// m["bin4"]
 
 void orderCallback(const osrf_gear::Order::ConstPtr &msg)
 {
@@ -15,6 +22,22 @@ void orderCallback(const osrf_gear::Order::ConstPtr &msg)
     //Create a copy of the message:
     // geometry_msgs::Twist msg_copy(*msg);
 
+}
+
+void cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
+    //We get info from subscribed camera:
+    if(msg -> models.empty()) {
+        // ROS_INFO("No more products");
+        return;
+    }
+        
+    std::string type = msg -> models.front().type;
+    // ROS_INFO(type.c_str());
+    items[type.c_str()] = msg -> models;
+}
+
+void printPose(const geometry_msgs::Pose pose){
+    ROS_INFO("\nProduct Position:\nxyz = (%f, %f, %f) \nwxyz = (%f, %f, %f, %f)",pose.position.x,pose.position.y,pose.position.z,pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
 }
 
 int main(int argc, char **argv)
@@ -36,6 +59,17 @@ int main(int argc, char **argv)
      */
     std_srvs::Trigger begin_comp;
     ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
+
+    //Subscribe to cameras over product bins:
+    ros::Subscriber camera_sub_b1 = n.subscribe("/ariac/logical_camera_bin1" , 1000, cameraCallback);
+    ros::Subscriber camera_sub_b2 = n.subscribe("/ariac/logical_camera_bin2" , 1000, cameraCallback);
+    ros::Subscriber camera_sub_b3 = n.subscribe("/ariac/logical_camera_bin3" , 1000, cameraCallback);
+    ros::Subscriber camera_sub_b4 = n.subscribe("/ariac/logical_camera_bin4" , 1000, cameraCallback);
+    ros::Subscriber camera_sub_b5 = n.subscribe("/ariac/logical_camera_bin5" , 1000, cameraCallback);
+    ros::Subscriber camera_sub_b6 = n.subscribe("/ariac/logical_camera_bin6" , 1000, cameraCallback);
+    // ros::Subscriber camera_sub_b = n.subscribe("/ariac/logical_camera_" , 1000, cameraCallback);
+    // ros::Subscriber camera_sub_b = n.subscribe("/ariac/logical_camera_" , 1000, cameraCallback);
+
     
     /**
      * Create the material location service for determining location of products
@@ -74,7 +108,6 @@ int main(int argc, char **argv)
    * Create the subscribers for  the lidar
    */
     ros::Subscriber orderSub = n.subscribe("/ariac/orders", 1000, orderCallback);
-    // ros::Subscriber laserSub = n.subscribe("laser_1", 1000, lidarCallback);
 
     //Define checks
     ros::Rate loop_rate(10);
@@ -84,31 +117,39 @@ int main(int argc, char **argv)
         // ROS_INFO("HI");
         //Look at orders if there are any waiting:
         if(!order_vector.empty()){
-            //Loop through each shipment
-            for(osrf_gear::Shipment shipment : order_vector.front().shipments){
-                //And each product within
-                for(osrf_gear::Product product : shipment.products){
-                    std::string product_type = product.type.c_str();
-                    ROS_INFO("%s", product_type);
-                    // std_srvs::Trigger mat_loc;
-                    osrf_gear::GetMaterialLocations srv;
-                    srv.request.material_type = product_type;
-                    // int call_succeeded = material_location_client.call(srv);
-                    // ROS_INFO("%d", call_succeeded);
-                    if(material_location_client.call(srv)){
-                        for(osrf_gear::StorageUnit unit : srv.response.storage_units){
-                            ROS_INFO("%s", unit.unit_id.c_str());
-                        }
-                    }
-                    
-                    // ROS_INFO("%s", )
-                    // // ROS_INFO(product_type);
+            //Loop through each shipment (UNECESSARY BUT KEPT)
+            // for(osrf_gear::Shipment shipment : order_vector.front().shipments){
+            //     //And each product within
+            //     for(osrf_gear::Product product : shipment.products){
+            //         std::string product_type = product.type.c_str();
+            //         ROS_INFO("%s", product_type);
+            //         // std_srvs::Trigger mat_loc;
+            //         osrf_gear::GetMaterialLocations srv;
+            //         srv.request.material_type = product_type;
+            //         // int call_succeeded = material_location_client.call(srv);
+            //         // ROS_INFO("%d", call_succeeded);
+            //         if(material_location_client.call(srv)){
+            //             for(osrf_gear::StorageUnit unit : srv.response.storage_units){
+            //                 ROS_INFO("%s", unit.unit_id.c_str());
+            //             }
+            //         }
+            //     }
+            // }
 
-                    // ROS_INFO("%s", product_type.c_str());
-                    // ROS_INFO("hi");
-                    // // ROS_INFO(product_type.c_str());
-                    // ROS_INFO(material_location_client.call(product_type.c_str()));
-                }
+            osrf_gear::Product first_product = order_vector.front().shipments.front().products.front();
+            
+            std::string product_type = first_product.type;
+            ROS_INFO("%s", product_type.c_str());
+            
+            osrf_gear::GetMaterialLocations srv;
+            srv.request.material_type = product_type;
+            if(material_location_client.call(srv)){
+                //Were able to find product location:
+                std::string product_location = srv.response.storage_units.front().unit_id;
+                ROS_INFO("%s", product_location.c_str());
+                osrf_gear::Model first_model = items[product_type.c_str()].front();
+
+                printPose(first_model.pose);
             }
 
             order_vector.erase(order_vector.begin());
