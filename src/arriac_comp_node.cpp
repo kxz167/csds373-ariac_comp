@@ -9,14 +9,17 @@
 #include <map>
 
 //Global order vector
+int order_count = 0;
 std::vector<osrf_gear::Order> order_vector;
-std::map<std::string, std::vector<osrf_gear::Model>> items;
+std::map<std::string, std::vector<osrf_gear::Model>> items_bin;
+std::map<std::string, std::vector<osrf_gear::Model>> items_agv;
+std::map<std::string, std::vector<osrf_gear::Model>> items_qcs;
 // std::map<std::string, std::string> CAMERAS;
 // m["bin4"]
 
 void orderCallback(const osrf_gear::Order::ConstPtr &msg)
 {
-    ROS_INFO("Callback");
+    ROS_INFO("Order %d Received", ++order_count);
     order_vector.push_back(*msg);
 
     //Create a copy of the message:
@@ -33,7 +36,31 @@ void cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
         
     std::string type = msg -> models.front().type;
     // ROS_INFO(type.c_str());
-    items[type.c_str()] = msg -> models;
+    items_bin[type.c_str()] = msg -> models;
+}
+
+void agv_cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
+    //We get info from subscribed camera:
+    if(msg -> models.empty()) {
+        // ROS_INFO("No more products");
+        return;
+    }
+        
+    std::string type = msg -> models.front().type;
+    // ROS_INFO(type.c_str());
+    items_agv[type.c_str()] = msg -> models;
+}
+
+void qcs_cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
+    //We get info from subscribed camera:
+    if(msg -> models.empty()) {
+        // ROS_INFO("No more products");
+        return;
+    }
+        
+    std::string type = msg -> models.front().type;
+    // ROS_INFO(type.c_str());
+    items_qcs[type.c_str()] = msg -> models;
 }
 
 void printPose(const geometry_msgs::Pose pose){
@@ -67,8 +94,10 @@ int main(int argc, char **argv)
     ros::Subscriber camera_sub_b4 = n.subscribe("/ariac/logical_camera_bin4" , 1000, cameraCallback);
     ros::Subscriber camera_sub_b5 = n.subscribe("/ariac/logical_camera_bin5" , 1000, cameraCallback);
     ros::Subscriber camera_sub_b6 = n.subscribe("/ariac/logical_camera_bin6" , 1000, cameraCallback);
-    // ros::Subscriber camera_sub_b = n.subscribe("/ariac/logical_camera_" , 1000, cameraCallback);
-    // ros::Subscriber camera_sub_b = n.subscribe("/ariac/logical_camera_" , 1000, cameraCallback);
+    ros::Subscriber camera_sub_a1 = n.subscribe("/ariac/logical_camera_agv1" , 1000, agv_cameraCallback);
+    ros::Subscriber camera_sub_a2 = n.subscribe("/ariac/logical_camera_agv2" , 1000, agv_cameraCallback);
+    ros::Subscriber camera_sub_q1 = n.subscribe("/ariac/quality_control_sensor_1" , 1000, qcs_cameraCallback);
+    ros::Subscriber camera_sub_q2 = n.subscribe("/ariac/quality_control_sensor_2" , 1000, qcs_cameraCallback);
 
     
     /**
@@ -139,15 +168,15 @@ int main(int argc, char **argv)
             osrf_gear::Product first_product = order_vector.front().shipments.front().products.front();
             
             std::string product_type = first_product.type;
-            ROS_INFO("%s", product_type.c_str());
+            ROS_INFO("Product Type : %s", product_type.c_str());
             
             osrf_gear::GetMaterialLocations srv;
             srv.request.material_type = product_type;
             if(material_location_client.call(srv)){
                 //Were able to find product location:
                 std::string product_location = srv.response.storage_units.front().unit_id;
-                ROS_INFO("%s", product_location.c_str());
-                osrf_gear::Model first_model = items[product_type.c_str()].front();
+                ROS_INFO("Located In   : %s", product_location.c_str());
+                osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
 
                 printPose(first_model.pose);
             }
