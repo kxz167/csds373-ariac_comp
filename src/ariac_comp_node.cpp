@@ -64,7 +64,7 @@ void qcs_cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
 }
 
 void printPose(const geometry_msgs::Pose pose){
-    ROS_INFO("\nProduct Position:\nxyz = (%f, %f, %f) \nwxyz = (%f, %f, %f, %f)",pose.position.x,pose.position.y,pose.position.z,pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
+    ROS_WARN("\nProduct Position:\nxyz = (%f, %f, %f) \nwxyz = (%f, %f, %f, %f)",pose.position.x,pose.position.y,pose.position.z,pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
 }
 
 int main(int argc, char **argv)
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     /**
    * Initialize ros, name the node
    */
-    ros::init(argc, argv, "arriac_comp_node");
+    ros::init(argc, argv, "ariac_comp_node");
 
     /**
    * NodeHandle is the main access point to communications with the ROS system.
