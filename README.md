@@ -22,7 +22,7 @@ ariac_comp
 
 ### Dependencies:
 
-This package depends on the ARIAC 2019 competition environment setup located [here](https://bitbucket.org/osrf/ariac/wiki/2019/Home). Please create a similar workspace directory with the packages.
+This package depends on the ARIAC 2019 competition environment setup located [here](https://bitbucket.org/osrf/ariac/wiki/2019/Home). Please create a similar workspace directory with the packages relevant packages and tools installed.
 
 ### Package directory structure:
 - ariac_comp (under src)
@@ -50,18 +50,9 @@ source /opt/ros/melodic/setup.bash
 
 ### Package pre-requirements:
 
-
-#### ariac_comp
-
-Open a terminal in the `arriac_ws/src` directory. Then perform the following commands:
-
-```
-git clone git@github.com:cwru-courses/csds373-f21-t2-ariac.git
-```
-
 ### Installing the package:
 
-After the dependencies can be loaded, the package can also be cloned into the `arriac_ws/src`:
+Open a terminal in the `ariac_ws/src` directory (or the work space setup for the 2019 competition). Then perform the following commands:
 
 ```
 git clone git@github.com:cwru-courses/csds373-f21-t2-ariac.git

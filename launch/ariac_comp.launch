@@ -1,8 +1,0 @@
-<launch>
-  <!-- Launching the order environment -->
-  <arg name="launch_environment" default="false"/>
-  <include if="$(arg launch_environment)" file="$(find ecse_373_ariac)/launch/ecse_373_ariac.launch"></include>
-  
-  <!-- Launch our competition node with screen output -->
-  <node name="ariac_comp_node" pkg="ariac_comp" type="ariac_comp_node" output="screen" />
-</launch>
