@@ -8,70 +8,57 @@
 #include "geometry_msgs/Pose.h"
 #include <map>
 
-//Global order vector
+//Global Variables
+//Order tracking
 int order_count = 0;
 std::vector<osrf_gear::Order> order_vector;
-std::map<std::string, std::vector<osrf_gear::Model>> items_bin;
-std::map<std::string, std::vector<osrf_gear::Model>> items_agv;
-std::map<std::string, std::vector<osrf_gear::Model>> items_qcs;
-// std::map<std::string, std::string> CAMERAS;
-// m["bin4"]
 
+//Items
+std::map<std::string, std::vector<osrf_gear::Model>> items_bin;     //Holds products in bins
+std::map<std::string, std::vector<osrf_gear::Model>> items_agv;     //Holds products on the conveyerbelts
+std::map<std::string, std::vector<osrf_gear::Model>> items_qcs;     //Holds faulty projects (on trays)
+
+
+// Store the order whenever it is received.
 void orderCallback(const osrf_gear::Order::ConstPtr &msg)
 {
-    ROS_INFO("Order %d Received", ++order_count);
+    ROS_INFO("Order %d Received.", ++order_count);
     order_vector.push_back(*msg);
-
-    //Create a copy of the message:
-    // geometry_msgs::Twist msg_copy(*msg);
-
 }
 
-void cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
-    //We get info from subscribed camera:
+// Camera callback to store the product (models) based on types.
+void cameraCallback(
+    const osrf_gear::LogicalCameraImage::ConstPtr &msg, 
+    std::map<std::string, std::vector<osrf_gear::Model>> *itemMap       //Must use pointers to avoid segfault
+){
+    //Get information from cameras
     if(msg -> models.empty()) {
-        // ROS_INFO("No more products");
+        // Return if no parts below.
         return;
     }
         
+    //Then get the type if there are
     std::string type = msg -> models.front().type;
-    // ROS_INFO(type.c_str());
-    items_bin[type.c_str()] = msg -> models;
-}
 
-void agv_cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
-    //We get info from subscribed camera:
-    if(msg -> models.empty()) {
-        // ROS_INFO("No more products");
-        return;
+    //For QC cameras, if no type, set type to faulty:
+    if(type.empty()){
+        type = "faulty";
     }
-        
-    std::string type = msg -> models.front().type;
-    // ROS_INFO(type.c_str());
-    items_agv[type.c_str()] = msg -> models;
+
+    //Place into the item map:
+    (*itemMap)[type.c_str()] = msg -> models;
 }
 
-void qcs_cameraCallback(const osrf_gear::LogicalCameraImage::ConstPtr &msg){
-    //We get info from subscribed camera:
-    if(msg -> models.empty()) {
-        // ROS_INFO("No more products");
-        return;
-    }
-        
-    std::string type = msg -> models.front().type;
-    // ROS_INFO(type.c_str());
-    items_qcs[type.c_str()] = msg -> models;
-}
-
+//Helper method to print out a Pose into a useful string.
 void printPose(const geometry_msgs::Pose pose){
-    ROS_WARN("\nProduct Position:\nxyz = (%f, %f, %f) \nwxyz = (%f, %f, %f, %f)",pose.position.x,pose.position.y,pose.position.z,pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
+    ROS_WARN("Product Position:");
+    ROS_WARN("xyz = (%f, %f, %f)",pose.position.x,pose.position.y,pose.position.z);
+    ROS_WARN("wxyz = (%f, %f, %f, %f)",pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
 }
 
 int main(int argc, char **argv)
 {
-    /**
-   * Initialize ros, name the node
-   */
+    //Initialize ros:
     ros::init(argc, argv, "ariac_comp_node");
 
     /**
@@ -81,72 +68,68 @@ int main(int argc, char **argv)
    */
     ros::NodeHandle n;
 
-    /**
-     * Trigger the beginning of the competiton.
-     */
+    //Create trigger for the beginning of the competition:
     std_srvs::Trigger begin_comp;
     ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
 
     //Subscribe to cameras over product bins:
-    ros::Subscriber camera_sub_b1 = n.subscribe("/ariac/logical_camera_bin1" , 1000, cameraCallback);
-    ros::Subscriber camera_sub_b2 = n.subscribe("/ariac/logical_camera_bin2" , 1000, cameraCallback);
-    ros::Subscriber camera_sub_b3 = n.subscribe("/ariac/logical_camera_bin3" , 1000, cameraCallback);
-    ros::Subscriber camera_sub_b4 = n.subscribe("/ariac/logical_camera_bin4" , 1000, cameraCallback);
-    ros::Subscriber camera_sub_b5 = n.subscribe("/ariac/logical_camera_bin5" , 1000, cameraCallback);
-    ros::Subscriber camera_sub_b6 = n.subscribe("/ariac/logical_camera_bin6" , 1000, cameraCallback);
-    ros::Subscriber camera_sub_a1 = n.subscribe("/ariac/logical_camera_agv1" , 1000, agv_cameraCallback);
-    ros::Subscriber camera_sub_a2 = n.subscribe("/ariac/logical_camera_agv2" , 1000, agv_cameraCallback);
-    ros::Subscriber camera_sub_q1 = n.subscribe("/ariac/quality_control_sensor_1" , 1000, qcs_cameraCallback);
-    ros::Subscriber camera_sub_q2 = n.subscribe("/ariac/quality_control_sensor_2" , 1000, qcs_cameraCallback);
-
+    ros::Subscriber camera_sub_b1 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin1" , 1000, boost::bind(cameraCallback, _1, &items_bin));
+    ros::Subscriber camera_sub_b2 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin2" , 1000, boost::bind(cameraCallback, _1, &items_bin));
+    ros::Subscriber camera_sub_b3 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin3" , 1000, boost::bind(cameraCallback, _1, &items_bin));
+    ros::Subscriber camera_sub_b4 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin4" , 1000, boost::bind(cameraCallback, _1, &items_bin));
+    ros::Subscriber camera_sub_b5 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin5" , 1000, boost::bind(cameraCallback, _1, &items_bin));
+    ros::Subscriber camera_sub_b6 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin6" , 1000, boost::bind(cameraCallback, _1, &items_bin));
+    ros::Subscriber camera_sub_a1 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_agv1" , 1000, boost::bind(cameraCallback, _1, &items_agv));
+    ros::Subscriber camera_sub_a2 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_agv2" , 1000, boost::bind(cameraCallback, _1, &items_agv));
+    ros::Subscriber camera_sub_q1 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/quality_control_sensor_1" , 1000, boost::bind(cameraCallback, _1, &items_qcs));
+    ros::Subscriber camera_sub_q2 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/quality_control_sensor_2" , 1000, boost::bind(cameraCallback, _1, &items_qcs));
     
-    /**
-     * Create the material location service for determining location of products
-     */
+    //Subscribe to incoming orders:
+    ros::Subscriber orderSub = n.subscribe("/ariac/orders", 1000, orderCallback);
+
+    //Create the material location service for determining location of products
     ros::ServiceClient material_location_client = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
+    //Begin the competition
     int service_call_succeeded;
-
     service_call_succeeded = begin_client.call(begin_comp);
-
     if (!service_call_succeeded)
     {
+        //Something went wrong calling the service itself
         ROS_ERROR("Competition service call failed! LOSER!");
         ros::shutdown();
     }
     else
     {
         if (!begin_comp.response.success)
-        {
+        {   
+            //Service was called, but could not be started
             ROS_WARN("Start Failure: %s", begin_comp.response.message.c_str());
         }
         else
         {
+            //Service was called and competition started successfully
             ROS_INFO("Start Success: %s", begin_comp.response.message.c_str());
         }
     }
 
+    //Clear out the orders in case of previous artifacting.
     order_vector.clear();
-
-    /**
-   * Create a publisher
-   */
-    // commandPub = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
-
-    /**
-   * Create the subscribers for  the lidar
-   */
-    ros::Subscriber orderSub = n.subscribe("/ariac/orders", 1000, orderCallback);
 
     //Define checks
     ros::Rate loop_rate(10);
 
     while (ros::ok())
     {
-        // ROS_INFO("HI");
-        //Look at orders if there are any waiting:
+        //Look and see if there are any waiting:
         if(!order_vector.empty()){
-            //Loop through each shipment (UNECESSARY BUT KEPT)
+            ROS_INFO("------------------------");
+            ROS_INFO("Processing Order Begin: ");
+
+            /**
+             * FIRST CODE TRY, loops through each order, and each subsequent product, locations, etc. Kept for future assignments
+             */
+            //Loop through each shipment
             // for(osrf_gear::Shipment shipment : order_vector.front().shipments){
             //     //And each product within
             //     for(osrf_gear::Product product : shipment.products){
@@ -165,23 +148,34 @@ int main(int argc, char **argv)
             //     }
             // }
 
+            //Get the first product (first order's first shipment's first product)
             osrf_gear::Product first_product = order_vector.front().shipments.front().products.front();
             
+            //Get the type
             std::string product_type = first_product.type;
             ROS_INFO("Product Type : %s", product_type.c_str());
             
+            //Create a request to the material location service:
             osrf_gear::GetMaterialLocations srv;
             srv.request.material_type = product_type;
+
+            //Call the request
             if(material_location_client.call(srv)){
-                //Were able to find product location:
+                //Were able to find a product location:
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
                 osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
 
+                //Output the pose
                 printPose(first_model.pose);
+            }
+            else{
+                //Call failed
             }
 
             order_vector.erase(order_vector.begin());
+            ROS_INFO("Processing Order End:   ");
+            ROS_INFO("------------------------");
         }
         ros::spinOnce();
         loop_rate.sleep();
