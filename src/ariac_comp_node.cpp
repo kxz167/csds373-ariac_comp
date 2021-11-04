@@ -71,6 +71,10 @@ void printPose(const geometry_msgs::Pose pose){
     ROS_WARN("wxyz = (%f, %f, %f, %f)",pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
 }
 
+int valid_solution (double possible_sol[8][6]){
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     //Initialize ros:
@@ -110,7 +114,7 @@ int main(int argc, char **argv)
     ros::Subscriber joint_states_h = n.subscribe("/ariac/arm1/joint_states", 10, armJointCallback);
 
     //Publish to a topic:
-    ros::Publisher trajectory_mover = n.publish("/ariac/arm1/arm/command", 10);
+    ros::Publisher trajectory_mover = n.advertise<trajectory_msgs::JointTrajectory>("/ariac/arm1/arm/command", 10);
     //Begin the competition
     int service_call_succeeded;
     service_call_succeeded = begin_client.call(begin_comp);
@@ -199,9 +203,16 @@ int main(int argc, char **argv)
                 geometry_msgs::Pose desired = first_model.pose;
 
                 //Finds where our sucky thing is right now.
-                q_pose[0] = joint_states.position[3];
+                // q_pose[0] = joint_states.position[3];
+                // q_pose[1] = joint_states.position[2];
+                // q_pose[2] = joint_states.position[0];
+                // q_pose[3] = joint_states.position[4];
+                // q_pose[4] = joint_states.position[5];
+                // q_pose[5] = joint_states.position[6];
+
+                q_pose[0] = joint_states.position[1];
                 q_pose[1] = joint_states.position[2];
-                q_pose[2] = joint_states.position[0];
+                q_pose[2] = joint_states.position[3];
                 q_pose[3] = joint_states.position[4];
                 q_pose[4] = joint_states.position[5];
                 q_pose[5] = joint_states.position[6];
@@ -220,24 +231,31 @@ int main(int argc, char **argv)
                 T_des[0][1] = -1.0;
                 T_des[1][2] = -1.0;
 
+                //InverseKinematics:
+                int num_sols;
+                num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
+                ROS_INFO("%d", num_sols);
+                //Message:
                 trajectory_msgs::JointTrajectory joint_trajectory;
 
-                joint_trajectory.header.seq = count++;
+                joint_trajectory.header.seq = msg_count++;
                 joint_trajectory.header.stamp = ros::Time::now();
                 joint_trajectory.header.frame_id = "/world";
 
-                //Construct message:
+                //Construct message structure:
                 joint_trajectory.joint_names.clear();
-                joint_trajectory.joint_names.pushBack("linear_arm_actuator_joint");
-                joint_trajectory.joint_names.pushBack("shoulder_pan_joint");
-                joint_trajectory.joint_names.pushBack("shoulder_lift_joint");
-                joint_trajectory.joint_names.pushBack("elbow_joint");
-                joint_trajectory.joint_names.pushBack("wrist_1_joint");
-                joint_trajectory.joint_names.pushBack("wrist_2_joint");
-                joint_trajectory.joint_names.pushBack("wrist_3_joint");
+                joint_trajectory.joint_names.push_back("elbow_joint");
+                joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
+                joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+                joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+                joint_trajectory.joint_names.push_back("wrist_1_joint");
+                joint_trajectory.joint_names.push_back("wrist_2_joint");
+                joint_trajectory.joint_names.push_back("wrist_3_joint");
 
+                // we just want start and endpoint movement, 2 points
                 joint_trajectory.points.resize(2);
 
+                // populate startpooint, point 0, with current position given by joint_states 
                 joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
                 for (int indy =0; indy < joint_trajectory.joint_names.size(); indy++){
                     for(int indz = 0; indz < joint_states.name.size(); indz++){
@@ -248,17 +266,31 @@ int main(int argc, char **argv)
                     }
                 }
 
+
+                // time to start moving from startpoint
+                // we want to move immediately so 0 seconds
                 joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
 
-                int q_des_indx = 0;     
+                // populate endpoint, points 1
+                int q_des_indx = valid_solution(q_des);
                 joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
-                joint_trajectory.points[1].positions[0] = joint_states.positions[1];
+                joint_trajectory.points[1].positions[1] = joint_states.position[1];
 
-                for(int indy = 0; indy < 6; indy++) {
-                    joint_trajectory.points[1].positions[indy+1] = q_sols[q_sols_indx][indy];
-                }
+                // for(int indy = 0; indy < 6; indy++) {
+                //     joint_trajectory.points[1].positions[indy+1] = q_des[q_des_indx][indy];
+                // }
+
+                joint_trajectory.points[1].positions[0] = q_des[q_des_indx][2];
+                joint_trajectory.points[1].positions[2] = q_des[q_des_indx][1];
+                joint_trajectory.points[1].positions[3] = q_des[q_des_indx][0];
+                joint_trajectory.points[1].positions[4] = q_des[q_des_indx][3];
+                joint_trajectory.points[1].positions[5] = q_des[q_des_indx][4];
+                joint_trajectory.points[1].positions[6] = q_des[q_des_indx][5];
+
+                // joint_trajectory.points[1].positions[1] += 3.14;
                 joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
-
+                
+                trajectory_mover.publish(joint_trajectory);
 
             }
             else{
