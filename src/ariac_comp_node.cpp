@@ -13,20 +13,40 @@
 #include "sensor_msgs/JointState.h"
 #include "trajectory_msgs/JointTrajectory.h"
 
+//TRANSFORMS:
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_listener.h>
+
 //Global Variables
 //Order tracking
 int order_count = 0;
 std::vector<osrf_gear::Order> order_vector;
 
 //Items
-std::map<std::string, std::vector<osrf_gear::Model>> items_bin;     //Holds products in bins
-std::map<std::string, std::vector<osrf_gear::Model>> items_agv;     //Holds products on the conveyerbelts
-std::map<std::string, std::vector<osrf_gear::Model>> items_qcs;     //Holds faulty projects (on trays)
+std::map<std::string, std::vector<geometry_msgs::Pose>> items_bin;     //Holds products in bins
+std::map<std::string, std::vector<geometry_msgs::Pose>> items_agv;     //Holds products on the conveyerbelts
+std::map<std::string, std::vector<geometry_msgs::Pose>> items_qcs;     //Holds faulty projects (on trays)
+
 
 
 //Joint states:
 sensor_msgs::JointState joint_states;
 
+void transform_pose(geometry_msgs::Pose& pose, std::string bin){
+    tf2_ros::Buffer tf_buffer;
+    tf2_ros::TransformListener tf2_listener(tf_buffer);
+    geometry_msgs::TransformStamped camera_to_world; // My frames are named "base_link" and "leap_motion"
+
+    camera_to_world = tf_buffer.lookupTransform(bin, "world", ros::Time(0), ros::Duration(1.0) );
+
+    tf2::doTransform(pose, pose, camera_to_world); // robot_pose is the PoseStamped I want to transform
+}
+
+//Helper method to print out a Pose into a useful string.
+void printPose(const geometry_msgs::Pose pose){
+    ROS_WARN("xyz = (%f, %f, %f)",pose.position.x,pose.position.y,pose.position.z);
+    ROS_WARN("wxyz = (%f, %f, %f, %f)",pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
+}
 
 // Store the order whenever it is received.
 void orderCallback(const osrf_gear::Order::ConstPtr &msg)
@@ -38,8 +58,9 @@ void orderCallback(const osrf_gear::Order::ConstPtr &msg)
 // Camera callback to store the product (models) based on types.
 void cameraCallback(
     const osrf_gear::LogicalCameraImage::ConstPtr &msg, 
-    std::map<std::string, std::vector<osrf_gear::Model>> *itemMap       //Must use pointers to avoid segfault
+    std::map<std::string, std::vector<geometry_msgs::Pose>> *itemMap       //Must use pointers to avoid segfault
 ){
+    // ROS_INFO("Callback");
     //Get information from cameras
     if(msg -> models.empty()) {
         // Return if no parts below.
@@ -54,8 +75,43 @@ void cameraCallback(
         type = "faulty";
     }
 
+    // printPose(msg-> pose);
+
+    geometry_msgs::Pose cam_pose = msg -> pose;
+
+    tf2_ros::Buffer tf_buffer;
+    tf2_ros::TransformListener tf2_listener(tf_buffer);
+    geometry_msgs::TransformStamped camera_to_world; // My frames are named "base_link" and "leap_motion"
+
+    camera_to_world = tf_buffer.lookupTransform("logical_camera_bin4_piston_rod_part_1_frame", "world", ros::Time(0), ros::Duration(1.0) );
+
+    
+
+    std::vector<geometry_msgs::Pose> product_poses; 
+
     //Place into the item map:
-    (*itemMap)[type.c_str()] = msg -> models;
+    geometry_msgs::Pose camera_pose = msg -> pose;
+    for (osrf_gear::Model product_model : msg -> models){
+        // printPose(product_model.pose);
+        geometry_msgs::Pose tempPose = geometry_msgs::Pose((msg -> pose));
+        geometry_msgs::Pose m_pose = product_model.pose;
+        // printPose(cam_pose);
+        // printPose(m_pose);
+        // tempPose.position.x = m_pose.position.x + cam_pose.position.x;
+        // tempPose.position.y = m_pose.position.y + cam_pose.position.y;
+        // tempPose.position.z = m_pose.position.z + cam_pose.position.z;
+
+        tempPose.position.x = -0.25;
+        tempPose.position.y = 0.5;
+        tempPose.position.z = 0.7;
+
+        // tf2::doTransform(product_model.pose, product_model.pose, camera_to_world); // robot_pose is the PoseStamped I want to transform
+        // transform_pose(product_model.pose, "bin4_frame");
+        // printPose(product_model.pose);
+        product_poses.push_back(tempPose);
+    }
+    (*itemMap)[type.c_str()] = product_poses;
+    // ROS_INFO("%s", type.c_str());
 }
 
 void armJointCallback(
@@ -64,15 +120,8 @@ void armJointCallback(
     joint_states = sensor_msgs::JointState(*msg);
 }
 
-//Helper method to print out a Pose into a useful string.
-void printPose(const geometry_msgs::Pose pose){
-    ROS_WARN("Product Position:");
-    ROS_WARN("xyz = (%f, %f, %f)",pose.position.x,pose.position.y,pose.position.z);
-    ROS_WARN("wxyz = (%f, %f, %f, %f)",pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
-}
-
 int valid_solution (double possible_sol[8][6]){
-    return 0;
+    return 5;
 }
 
 int main(int argc, char **argv)
@@ -191,16 +240,19 @@ int main(int argc, char **argv)
                 //Were able to find a product location:
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
-                osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
-
+                // osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
+                geometry_msgs::Pose first_pose = items_bin[product_type.c_str()].front();
                 //Output the pose
-                printPose(first_model.pose);
-
+                ROS_WARN("Product Position:");
+                // printPose(first_model.pose);
+                printPose(first_pose);
                 //LAB 2 PRODUCT PROCESSING
                 double T_pose[4][4] = {0.0}, T_des[4][4] = {0.0};
                 double q_pose[6] = {0.0}, q_des[8][6] = {0.0};
                 // trajectory_msgs::JointTrajectory desired;
-                geometry_msgs::Pose desired = first_model.pose;
+                // geometry_msgs::Pose desired = first_pose;
+
+                // ROS_WARN("OTHERS");
 
                 //Finds where our sucky thing is right now.
                 // q_pose[0] = joint_states.position[3];
@@ -210,27 +262,29 @@ int main(int argc, char **argv)
                 // q_pose[4] = joint_states.position[5];
                 // q_pose[5] = joint_states.position[6];
 
-                q_pose[0] = joint_states.position[1];
-                q_pose[1] = joint_states.position[2];
-                q_pose[2] = joint_states.position[3];
-                q_pose[3] = joint_states.position[4];
-                q_pose[4] = joint_states.position[5];
-                q_pose[5] = joint_states.position[6];
+                // q_pose[0] = joint_states.position[1];
+                // q_pose[1] = joint_states.position[2];
+                // q_pose[2] = joint_states.position[3];
+                // q_pose[3] = joint_states.position[4];
+                // q_pose[4] = joint_states.position[5];
+                // q_pose[5] = joint_states.position[6];
 
                 // ur_kinematics::forward((double*)&q_pose, (double*)&T_pose);
+                                // ROS_WARN("OTHERS");
 
                 //Where is our product?
                 //LOCATION x/y/z
-                T_des[0][3] = desired.position.x;
-                T_des[1][3] = desired.position.y;
-                T_des[2][3] = desired.position.z + 0.3;
+                T_des[0][3] = first_pose.position.x;
+                T_des[1][3] = first_pose.position.y;
+                T_des[2][3] = first_pose.position.z + .3;
                 T_des[3][3] = 1.0;
+                // ROS_WARN("OTHERS");
 
                 //ROTATION
                 T_des[2][0] = -1.0;
                 T_des[0][1] = -1.0;
                 T_des[1][2] = -1.0;
-
+                // ROS_INFO("TEST");
                 //InverseKinematics:
                 int num_sols;
                 num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
