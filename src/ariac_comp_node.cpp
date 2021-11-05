@@ -17,6 +17,11 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_listener.h>
 
+//ActionServers
+#include "actionlib/client/simple_action_client.h"
+#include "actionlib/client/terminal_state.h"
+#include "control_msgs/FollowJointTrajectoryAction.h"
+
 //Global Variables
 //Order tracking
 int order_count = 0;
@@ -32,15 +37,15 @@ std::map<std::string, std::vector<geometry_msgs::Pose>> items_qcs;     //Holds f
 //Joint states:
 sensor_msgs::JointState joint_states;
 
-void transform_pose(geometry_msgs::Pose& pose, std::string bin){
-    tf2_ros::Buffer tf_buffer;
-    tf2_ros::TransformListener tf2_listener(tf_buffer);
-    geometry_msgs::TransformStamped camera_to_world; // My frames are named "base_link" and "leap_motion"
+// void transform_pose(geometry_msgs::Pose& pose, std::string bin){
+//     tf2_ros::Buffer tf_buffer;
+//     tf2_ros::TransformListener tf2_listener(tf_buffer);
+//     geometry_msgs::TransformStamped camera_to_world; // My frames are named "base_link" and "leap_motion"
 
-    camera_to_world = tf_buffer.lookupTransform(bin, "world", ros::Time(0), ros::Duration(1.0) );
+//     camera_to_world = tf_buffer.lookupTransform(bin, "world", ros::Time(0), ros::Duration(1.0) );
 
-    tf2::doTransform(pose, pose, camera_to_world); // robot_pose is the PoseStamped I want to transform
-}
+//     tf2::doTransform(pose, pose, camera_to_world); // robot_pose is the PoseStamped I want to transform
+// }
 
 //Helper method to print out a Pose into a useful string.
 void printPose(const geometry_msgs::Pose pose){
@@ -77,15 +82,17 @@ void cameraCallback(
 
     // printPose(msg-> pose);
 
-    geometry_msgs::Pose cam_pose = msg -> pose;
+    // geometry_msgs::Pose cam_pose = msg -> pose;
 
-    tf2_ros::Buffer tf_buffer;
-    tf2_ros::TransformListener tf2_listener(tf_buffer);
-    geometry_msgs::TransformStamped camera_to_world; // My frames are named "base_link" and "leap_motion"
-
-    camera_to_world = tf_buffer.lookupTransform("logical_camera_bin4_piston_rod_part_1_frame", "world", ros::Time(0), ros::Duration(1.0) );
-
-    
+    // tf2_ros::Buffer tf_buffer;
+    // tf2_ros::TransformListener tf2_listener(tf_buffer);
+    // geometry_msgs::TransformStamped camera_to_base; // My frames are named "base_link" and "leap_motion"
+    // // try{
+    //     camera_to_base = tf_buffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0), ros::Duration(1.0) );
+    // }
+    // catch(tf2::TransformException &ex){
+    //     //STUFF
+    // }
 
     std::vector<geometry_msgs::Pose> product_poses; 
 
@@ -93,22 +100,41 @@ void cameraCallback(
     geometry_msgs::Pose camera_pose = msg -> pose;
     for (osrf_gear::Model product_model : msg -> models){
         // printPose(product_model.pose);
-        geometry_msgs::Pose tempPose = geometry_msgs::Pose((msg -> pose));
-        geometry_msgs::Pose m_pose = product_model.pose;
+        // geometry_msgs::Pose tempPose = geometry_msgs::Pose((msg -> pose));
+        // geometry_msgs::Pose m_pose = product_model.pose;
+        // geometry_msgs::PoseStamped tempPose = geometry_msgs::Pose((msg -> pose));
+        // geometry_msgs::PoseStamped m_pose;
+        // geometry_msgs::PoseStamped tempPose;
+
+        // m_pose.pose.position.x = product_model.pose.position.x;
+        // m_pose.pose.position.y = product_model.pose.position.x;
+        // m_pose.pose.position.z = product_model.pose.position.x;
+        // m_pose.pose.orientation.x = product_model.pose.orientation.x;
+        // m_pose.pose.orientation.y = product_model.pose.orientation.y;
+        // m_pose.pose.orientation.z = product_model.pose.orientation.z;
+        // m_pose.pose.orientation.w = product_model.pose.orientation.w;
+        
         // printPose(cam_pose);
         // printPose(m_pose);
         // tempPose.position.x = m_pose.position.x + cam_pose.position.x;
         // tempPose.position.y = m_pose.position.y + cam_pose.position.y;
         // tempPose.position.z = m_pose.position.z + cam_pose.position.z;
 
-        tempPose.position.x = -0.25;
-        tempPose.position.y = 0.5;
-        tempPose.position.z = 0.7;
+        // tempPose.position.x = -0.25;
+        // tempPose.position.y = 0.5;
+        // tempPose.position.z = 0.7;
+        // tf2::doTransform(m_pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
 
-        // tf2::doTransform(product_model.pose, product_model.pose, camera_to_world); // robot_pose is the PoseStamped I want to transform
+        // tf2::doTransform(product_model.pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
         // transform_pose(product_model.pose, "bin4_frame");
         // printPose(product_model.pose);
-        product_poses.push_back(tempPose);
+        // tempPose.pose.orientation.w = 0.707;
+        // tempPose.pose.orientation.x = 0.0;
+        // tempPose.pose.orientation.y = 0.707;
+        // tempPose.pose.orientation.z = 0.0;
+
+        // product_poses.push_back(tempPose);
+        product_poses.push_back(product_model.pose);
     }
     (*itemMap)[type.c_str()] = product_poses;
     // ROS_INFO("%s", type.c_str());
@@ -121,7 +147,31 @@ void armJointCallback(
 }
 
 int valid_solution (double possible_sol[8][6]){
-    return 5;
+    int op_sol = 0;
+
+    for(int i = 0; i < 8; i++){
+        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0],possible_sol[i][1],possible_sol[i][2],possible_sol[i][3],possible_sol[i][4],possible_sol[i][5]);
+        if( possible_sol[i][1] < -1.57 || 1.57 < possible_sol[i][1]){
+            op_sol++;
+        }
+        else{
+            return op_sol;
+        }
+
+    }
+    // possible_sol[i]
+
+    // for(auto& solution : possible_sol){
+    //     if( solution[0] < -1.57 || 1.57 < solution[0]){
+    //         op_sol++;
+    //     }
+    //     else{
+    //         break;
+    //     }
+
+    // }
+
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -139,6 +189,10 @@ int main(int argc, char **argv)
     //Create trigger for the beginning of the competition:
     std_srvs::Trigger begin_comp;
     ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
+
+    actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
+        trajectory_as("/ariac/arm1/arm/follow_joint_trajectory", true);
+    control_msgs::FollowJointTrajectoryAction joint_trajectory_as;
 
     //Subscribe to cameras over product bins:
     ros::Subscriber camera_sub_b1 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin1" , 1000, boost::bind(cameraCallback, _1, &items_bin));
@@ -241,11 +295,32 @@ int main(int argc, char **argv)
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
                 // osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
-                geometry_msgs::Pose first_pose = items_bin[product_type.c_str()].front();
+                geometry_msgs::Pose first_pose = items_bin[product_type.c_str()][7];
+                // geometry_msgs::PoseStamped first_pose = items_bin[product_type.c_str()].front();
                 //Output the pose
                 ROS_WARN("Product Position:");
                 // printPose(first_model.pose);
-                printPose(first_pose);
+                // printPose(first_pose);
+                
+                tf2_ros::Buffer tf_buffer;
+                tf2_ros::TransformListener tf2_listener(tf_buffer);
+                // tf2_ros::TransformListener tf2_listener(tf_buffer2);
+                geometry_msgs::TransformStamped camera_to_base; // My frames are named "base_link" and "leap_motion"
+    
+                
+                geometry_msgs::Pose tempPose;
+                geometry_msgs::Pose m_pose = first_pose;
+                camera_to_base = tf_buffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0), ros::Duration(1.0) );
+                tf2::doTransform(m_pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
+                printPose(tempPose);
+
+                geometry_msgs::TransformStamped camera_to_world;
+                geometry_msgs::Pose tempPose2;
+                camera_to_world = tf_buffer.lookupTransform("world", "logical_camera_bin4_frame", ros::Time(0), ros::Duration(1.0) );
+                tf2::doTransform(m_pose, tempPose2, camera_to_world); // robot_pose is the PoseStamped I want to transform
+
+                printPose(tempPose2);
+
                 //LAB 2 PRODUCT PROCESSING
                 double T_pose[4][4] = {0.0}, T_des[4][4] = {0.0};
                 double q_pose[6] = {0.0}, q_des[8][6] = {0.0};
@@ -272,18 +347,20 @@ int main(int argc, char **argv)
                 // ur_kinematics::forward((double*)&q_pose, (double*)&T_pose);
                                 // ROS_WARN("OTHERS");
 
+                // printPose(tempPose);
+
                 //Where is our product?
                 //LOCATION x/y/z
-                T_des[0][3] = first_pose.position.x;
-                T_des[1][3] = first_pose.position.y;
-                T_des[2][3] = first_pose.position.z + .3;
+                T_des[0][3] = tempPose.position.x;
+                T_des[1][3] = tempPose.position.y;
+                T_des[2][3] = tempPose.position.z + .3;
                 T_des[3][3] = 1.0;
                 // ROS_WARN("OTHERS");
 
                 //ROTATION
                 T_des[2][0] = -1.0;
                 T_des[0][1] = -1.0;
-                T_des[1][2] = -1.0;
+                T_des[1][2] = 1.0;
                 // ROS_INFO("TEST");
                 //InverseKinematics:
                 int num_sols;
@@ -299,7 +376,6 @@ int main(int argc, char **argv)
                 //Construct message structure:
                 joint_trajectory.joint_names.clear();
                 joint_trajectory.joint_names.push_back("elbow_joint");
-                joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
                 joint_trajectory.joint_names.push_back("shoulder_lift_joint");
                 joint_trajectory.joint_names.push_back("shoulder_pan_joint");
                 joint_trajectory.joint_names.push_back("wrist_1_joint");
@@ -327,6 +403,7 @@ int main(int argc, char **argv)
 
                 // populate endpoint, points 1
                 int q_des_indx = valid_solution(q_des);
+                ROS_WARN("%d", q_des_indx);
                 joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
                 joint_trajectory.points[1].positions[1] = joint_states.position[1];
 
@@ -345,7 +422,12 @@ int main(int argc, char **argv)
                 joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
                 
                 trajectory_mover.publish(joint_trajectory);
-
+                
+                // joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+                // actionlib::SimpleClientGoalState state = \
+                //     trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, \
+                //     ros::Duration(30.0), ros::Duration(30.0));
+                // ROS_INFO("Action Server returned with status [%i] %s", state.state_, state.toString().c_str());
             }
             else{
                 //Call failed
