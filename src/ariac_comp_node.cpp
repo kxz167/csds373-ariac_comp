@@ -28,11 +28,9 @@ int order_count = 0;
 std::vector<osrf_gear::Order> order_vector;
 
 //Items
-std::map<std::string, std::vector<geometry_msgs::Pose>> items_bin;     //Holds products in bins
-std::map<std::string, std::vector<geometry_msgs::Pose>> items_agv;     //Holds products on the conveyerbelts
-std::map<std::string, std::vector<geometry_msgs::Pose>> items_qcs;     //Holds faulty projects (on trays)
-
-
+std::map<std::string, std::vector<osrf_gear::Model>> items_bin;     //Holds products in bins
+std::map<std::string, std::vector<osrf_gear::Model>> items_agv;     //Holds products on the conveyerbelts
+std::map<std::string, std::vector<osrf_gear::Model>> items_qcs;     //Holds faulty projects (on trays)
 
 //Joint states:
 sensor_msgs::JointState joint_states;
@@ -63,10 +61,8 @@ void orderCallback(const osrf_gear::Order::ConstPtr &msg)
 // Camera callback to store the product (models) based on types.
 void cameraCallback(
     const osrf_gear::LogicalCameraImage::ConstPtr &msg, 
-    std::map<std::string, std::vector<geometry_msgs::Pose>> *itemMap       //Must use pointers to avoid segfault
+    std::map<std::string, std::vector<osrf_gear::Model>> *itemMap       //Must use pointers to avoid segfault
 ){
-    // ROS_INFO("Callback");
-    //Get information from cameras
     if(msg -> models.empty()) {
         // Return if no parts below.
         return;
@@ -94,49 +90,51 @@ void cameraCallback(
     //     //STUFF
     // }
 
-    std::vector<geometry_msgs::Pose> product_poses; 
-
+    // std::vector<geometry_msgs::Pose> product_poses; 
+    std::vector<osrf_gear::Model> product_models;
     //Place into the item map:
-    geometry_msgs::Pose camera_pose = msg -> pose;
+    // geometry_msgs::Pose camera_pose = msg -> pose;
     for (osrf_gear::Model product_model : msg -> models){
-        // printPose(product_model.pose);
-        // geometry_msgs::Pose tempPose = geometry_msgs::Pose((msg -> pose));
-        // geometry_msgs::Pose m_pose = product_model.pose;
-        // geometry_msgs::PoseStamped tempPose = geometry_msgs::Pose((msg -> pose));
-        // geometry_msgs::PoseStamped m_pose;
-        // geometry_msgs::PoseStamped tempPose;
+        product_models.push_back(osrf_gear::Model(product_model));
+    //     // printPose(product_model.pose);
+    //     // geometry_msgs::Pose tempPose = geometry_msgs::Pose((msg -> pose));
+    //     // geometry_msgs::Pose m_pose = product_model.pose;
+    //     // geometry_msgs::PoseStamped tempPose = geometry_msgs::Pose((msg -> pose));
+    //     // geometry_msgs::PoseStamped m_pose;
+    //     // geometry_msgs::PoseStamped tempPose;
 
-        // m_pose.pose.position.x = product_model.pose.position.x;
-        // m_pose.pose.position.y = product_model.pose.position.x;
-        // m_pose.pose.position.z = product_model.pose.position.x;
-        // m_pose.pose.orientation.x = product_model.pose.orientation.x;
-        // m_pose.pose.orientation.y = product_model.pose.orientation.y;
-        // m_pose.pose.orientation.z = product_model.pose.orientation.z;
-        // m_pose.pose.orientation.w = product_model.pose.orientation.w;
+    //     // m_pose.pose.position.x = product_model.pose.position.x;
+    //     // m_pose.pose.position.y = product_model.pose.position.x;
+    //     // m_pose.pose.position.z = product_model.pose.position.x;
+    //     // m_pose.pose.orientation.x = product_model.pose.orientation.x;
+    //     // m_pose.pose.orientation.y = product_model.pose.orientation.y;
+    //     // m_pose.pose.orientation.z = product_model.pose.orientation.z;
+    //     // m_pose.pose.orientation.w = product_model.pose.orientation.w;
         
-        // printPose(cam_pose);
-        // printPose(m_pose);
-        // tempPose.position.x = m_pose.position.x + cam_pose.position.x;
-        // tempPose.position.y = m_pose.position.y + cam_pose.position.y;
-        // tempPose.position.z = m_pose.position.z + cam_pose.position.z;
+    //     // printPose(cam_pose);
+    //     // printPose(m_pose);
+    //     // tempPose.position.x = m_pose.position.x + cam_pose.position.x;
+    //     // tempPose.position.y = m_pose.position.y + cam_pose.position.y;
+    //     // tempPose.position.z = m_pose.position.z + cam_pose.position.z;
 
-        // tempPose.position.x = -0.25;
-        // tempPose.position.y = 0.5;
-        // tempPose.position.z = 0.7;
-        // tf2::doTransform(m_pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
+    //     // tempPose.position.x = -0.25;
+    //     // tempPose.position.y = 0.5;
+    //     // tempPose.position.z = 0.7;
+    //     // tf2::doTransform(m_pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
 
-        // tf2::doTransform(product_model.pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
-        // transform_pose(product_model.pose, "bin4_frame");
-        // printPose(product_model.pose);
-        // tempPose.pose.orientation.w = 0.707;
-        // tempPose.pose.orientation.x = 0.0;
-        // tempPose.pose.orientation.y = 0.707;
-        // tempPose.pose.orientation.z = 0.0;
+    //     // tf2::doTransform(product_model.pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
+    //     // transform_pose(product_model.pose, "bin4_frame");
+    //     // printPose(product_model.pose);
+    //     // tempPose.pose.orientation.w = 0.707;
+    //     // tempPose.pose.orientation.x = 0.0;
+    //     // tempPose.pose.orientation.y = 0.707;
+    //     // tempPose.pose.orientation.z = 0.0;
 
-        // product_poses.push_back(tempPose);
-        product_poses.push_back(product_model.pose);
+    //     // product_poses.push_back(tempPose);
+    //     product_poses.push_back(product_model.pose);
     }
-    (*itemMap)[type.c_str()] = product_poses;
+    // (*itemMap)[type.c_str()] = product_poses;
+    (*itemMap)[type.c_str()] = product_models;
     // ROS_INFO("%s", type.c_str());
 }
 
@@ -149,16 +147,16 @@ void armJointCallback(
 int valid_solution (double possible_sol[8][6]){
     int op_sol = 0;
 
-    for(int i = 0; i < 8; i++){
-        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0],possible_sol[i][1],possible_sol[i][2],possible_sol[i][3],possible_sol[i][4],possible_sol[i][5]);
-        if( possible_sol[i][1] < -1.57 || 1.57 < possible_sol[i][1]){
-            op_sol++;
-        }
-        else{
-            return op_sol;
-        }
+    // for(int i = 0; i < 8; i++){
+    //     ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0],possible_sol[i][1],possible_sol[i][2],possible_sol[i][3],possible_sol[i][4],possible_sol[i][5]);
+    //     if( possible_sol[i][1] < -1.57 || 1.57 < possible_sol[i][1]){
+    //         op_sol++;
+    //     }
+    //     else{
+    //         return op_sol;
+    //     }
 
-    }
+    // }
     // possible_sol[i]
 
     // for(auto& solution : possible_sol){
@@ -294,32 +292,35 @@ int main(int argc, char **argv)
                 //Were able to find a product location:
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
-                // osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
-                geometry_msgs::Pose first_pose = items_bin[product_type.c_str()][7];
+                osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
+                // geometry_msgs::Pose first_pose = items_bin[product_type.c_str()][7];
                 // geometry_msgs::PoseStamped first_pose = items_bin[product_type.c_str()].front();
                 //Output the pose
                 ROS_WARN("Product Position:");
-                // printPose(first_model.pose);
+                printPose(first_model.pose);
                 // printPose(first_pose);
                 
+                //LOOK FOR THE TRANSFORM
                 tf2_ros::Buffer tf_buffer;
                 tf2_ros::TransformListener tf2_listener(tf_buffer);
                 // tf2_ros::TransformListener tf2_listener(tf_buffer2);
-                geometry_msgs::TransformStamped camera_to_base; // My frames are named "base_link" and "leap_motion"
-    
                 
-                geometry_msgs::Pose tempPose;
-                geometry_msgs::Pose m_pose = first_pose;
+                geometry_msgs::TransformStamped camera_to_base;                
                 camera_to_base = tf_buffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0), ros::Duration(1.0) );
-                tf2::doTransform(m_pose, tempPose, camera_to_base); // robot_pose is the PoseStamped I want to transform
-                printPose(tempPose);
+                
+                //Perform the transpose:
+                geometry_msgs::Pose new_pose;
+                geometry_msgs::Pose model_pose = first_model.pose;
+                tf2::doTransform(model_pose, new_pose, camera_to_base); // robot_pose is the PoseStamped I want to transform
+                // printPose(tempPose);
 
-                geometry_msgs::TransformStamped camera_to_world;
-                geometry_msgs::Pose tempPose2;
-                camera_to_world = tf_buffer.lookupTransform("world", "logical_camera_bin4_frame", ros::Time(0), ros::Duration(1.0) );
-                tf2::doTransform(m_pose, tempPose2, camera_to_world); // robot_pose is the PoseStamped I want to transform
+                // TRANSFORM TO WORLD COORDINATES FOR DEBUG
+                // geometry_msgs::TransformStamped camera_to_world;
+                // geometry_msgs::Pose tempPose2;
+                // camera_to_world = tf_buffer.lookupTransform("world", "logical_camera_bin4_frame", ros::Time(0), ros::Duration(1.0) );
+                // tf2::doTransform(m_pose, tempPose2, camera_to_world); // robot_pose is the PoseStamped I want to transform
+                // printPose(tempPose2);
 
-                printPose(tempPose2);
 
                 //LAB 2 PRODUCT PROCESSING
                 double T_pose[4][4] = {0.0}, T_des[4][4] = {0.0};
@@ -350,34 +351,35 @@ int main(int argc, char **argv)
                 // printPose(tempPose);
 
                 //Where is our product?
-                //LOCATION x/y/z
-                T_des[0][3] = tempPose.position.x;
-                T_des[1][3] = tempPose.position.y;
-                T_des[2][3] = tempPose.position.z + .3;
+                    // WHAT WE ARE SHOOTING FOR
+                T_des[0][3] = new_pose.position.x;
+                T_des[1][3] = new_pose.position.y;
+                T_des[2][3] = new_pose.position.z + .3;     //Place slightly above model
                 T_des[3][3] = 1.0;
-                // ROS_WARN("OTHERS");
-
-                //ROTATION
+                    //End effector ROTATION
                 T_des[2][0] = -1.0;
                 T_des[0][1] = -1.0;
                 T_des[1][2] = 1.0;
                 // ROS_INFO("TEST");
+
                 //InverseKinematics:
                 int num_sols;
                 num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
                 ROS_INFO("%d", num_sols);
-                //Message:
+
+                //Trajectory Command Message:
                 trajectory_msgs::JointTrajectory joint_trajectory;
 
                 joint_trajectory.header.seq = msg_count++;
                 joint_trajectory.header.stamp = ros::Time::now();
-                joint_trajectory.header.frame_id = "/world";
+                joint_trajectory.header.frame_id = "/world";    //TODO World correct?
 
                 //Construct message structure:
                 joint_trajectory.joint_names.clear();
-                joint_trajectory.joint_names.push_back("elbow_joint");
-                joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+                joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
                 joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+                joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+                joint_trajectory.joint_names.push_back("elbow_joint");
                 joint_trajectory.joint_names.push_back("wrist_1_joint");
                 joint_trajectory.joint_names.push_back("wrist_2_joint");
                 joint_trajectory.joint_names.push_back("wrist_3_joint");
@@ -405,29 +407,29 @@ int main(int argc, char **argv)
                 int q_des_indx = valid_solution(q_des);
                 ROS_WARN("%d", q_des_indx);
                 joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
-                joint_trajectory.points[1].positions[1] = joint_states.position[1];
+                joint_trajectory.points[1].positions[0] = joint_states.position[1];
 
-                // for(int indy = 0; indy < 6; indy++) {
-                //     joint_trajectory.points[1].positions[indy+1] = q_des[q_des_indx][indy];
-                // }
+                for(int indy = 0; indy < 6; indy++) {
+                    joint_trajectory.points[1].positions[indy+1] = q_des[q_des_indx][indy];
+                }
 
-                joint_trajectory.points[1].positions[0] = q_des[q_des_indx][2];
-                joint_trajectory.points[1].positions[2] = q_des[q_des_indx][1];
-                joint_trajectory.points[1].positions[3] = q_des[q_des_indx][0];
-                joint_trajectory.points[1].positions[4] = q_des[q_des_indx][3];
-                joint_trajectory.points[1].positions[5] = q_des[q_des_indx][4];
-                joint_trajectory.points[1].positions[6] = q_des[q_des_indx][5];
+                // joint_trajectory.points[1].positions[0] = q_des[q_des_indx][2];
+                // joint_trajectory.points[1].positions[2] = q_des[q_des_indx][1];
+                // joint_trajectory.points[1].positions[3] = q_des[q_des_indx][0];
+                // joint_trajectory.points[1].positions[4] = q_des[q_des_indx][3];
+                // joint_trajectory.points[1].positions[5] = q_des[q_des_indx][4];
+                // joint_trajectory.points[1].positions[6] = q_des[q_des_indx][5];
 
                 // joint_trajectory.points[1].positions[1] += 3.14;
                 joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
                 
-                trajectory_mover.publish(joint_trajectory);
+                // trajectory_mover.publish(joint_trajectory);
                 
-                // joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
-                // actionlib::SimpleClientGoalState state = \
-                //     trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, \
-                //     ros::Duration(30.0), ros::Duration(30.0));
-                // ROS_INFO("Action Server returned with status [%i] %s", state.state_, state.toString().c_str());
+                joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+                actionlib::SimpleClientGoalState state = \
+                    trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, \
+                    ros::Duration(30.0), ros::Duration(30.0));
+                ROS_INFO("Action Server returned with status [%i] %s", state.state_, state.toString().c_str());
             }
             else{
                 //Call failed
