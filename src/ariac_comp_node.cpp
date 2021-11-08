@@ -33,7 +33,7 @@ std::vector<osrf_gear::Order> order_vector;
 std::map<std::string, std::vector<osrf_gear::Model>> items_bin;     //Holds products in bins
 std::map<std::string, std::vector<osrf_gear::Model>> items_agv;     //Holds products on the conveyerbelts
 std::map<std::string, std::vector<osrf_gear::Model>> items_qcs;     //Holds faulty projects (on trays)
-
+bool populated = false;
 //Joint states:
 sensor_msgs::JointState joint_states;
 
@@ -84,6 +84,7 @@ void cameraCallback(
         product_models.push_back(osrf_gear::Model(product_model));
     }
     (*itemMap)[type] = product_models;
+	populated = true;
 }
 
 void armJointCallback(
@@ -202,7 +203,7 @@ int main(int argc, char **argv)
     while (ros::ok())
     {
         //Look and see if there are any waiting:
-        if(!order_vector.empty()){
+        if(!order_vector.empty() && populated){
             ROS_INFO("------------------------");
             ROS_INFO("Processing Order Begin: ");
 
