@@ -63,7 +63,8 @@ void cameraCallback(
     const osrf_gear::LogicalCameraImage::ConstPtr &msg, 
     std::map<std::string, std::vector<osrf_gear::Model>> *itemMap       //Must use pointers to avoid segfault
 ){
-    if(msg -> models.empty()) {
+    //ROS_INFO("Camera callback happened");
+	if(msg -> models.empty()) {
         // Return if no parts below.
         return;
     }
@@ -243,6 +244,12 @@ int main(int argc, char **argv)
                 //Were able to find a product location:
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
+		
+		
+		if (items_bin.count(product_type.c_str()) == 0) {
+			ROS_WARN("Camera does not confirm %s in %s", product_type.c_str(), product_location.c_str());			
+			break; 
+		}
                 osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
                 // geometry_msgs::Pose first_pose = items_bin[product_type.c_str()][7];
                 // geometry_msgs::PoseStamped first_pose = items_bin[product_type.c_str()].front();
@@ -256,24 +263,26 @@ int main(int argc, char **argv)
 
                 // //MOVE TO LOCATION
                 // //Trajectory Command Message:
-                trajectory_msgs::JointTrajectory act_joint_trajectory;
+                // trajectory_msgs::JointTrajectory act_joint_trajectory;
 
                 //     //Bootsrap
-                 act_joint_trajectory.header.seq = msg_count++;
-                 act_joint_trajectory.header.stamp = ros::Time::now();
-                 act_joint_trajectory.header.frame_id = "/world";    //TODO World correct?
+                 // act_joint_trajectory.header.seq = msg_count++;
+                 // act_joint_trajectory.header.stamp = ros::Time::now();
+                 // act_joint_trajectory.header.frame_id = "/world";    //TODO World correct?
 
-                 act_joint_trajectory.joint_names.clear();
-		 act_joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
-		 act_joint_trajectory.joint_names.push_back("shoulder_pan_joint");
-                 act_joint_trajectory.joint_names.push_back("shoulder_lift_joint");
-                 act_joint_trajectory.joint_names.push_back("elbow_joint");
-                 act_joint_trajectory.joint_names.push_back("wrist_1_joint");
-                 act_joint_trajectory.joint_names.push_back("wrist_2_joint");
-                 act_joint_trajectory.joint_names.push_back("wrist_3_joint");
+                 // act_joint_trajectory.joint_names.clear();
+		 // act_joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
+		 // act_joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+                 // act_joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+                 // act_joint_trajectory.joint_names.push_back("elbow_joint");
+                 // act_joint_trajectory.joint_names.push_back("wrist_1_joint");
+                 // act_joint_trajectory.joint_names.push_back("wrist_2_joint");
+                 // act_joint_trajectory.joint_names.push_back("wrist_3_joint");
                 
-                 //act_joint_trajectory.points.clear();
-                 act_joint_trajectory.points.resize(1);
+				// ROS_INFO();
+
+                 // act_joint_trajectory.points.clear();
+                 // act_joint_trajectory.points.resize(1);
 
                 // // DON'T MOVE ARM: 
                  //act_joint_trajectory.points[0].positions.resize(act_joint_trajectory.joint_names.size());
@@ -288,22 +297,22 @@ int main(int argc, char **argv)
 
                 // //Set waypoint size:
                 //act_joint_trajectory.points[0].positions[1] = bin_pos[product_location];     //Where the linear actuator is now, replace with bin location
-		act_joint_trajectory.points[0].positions[0] = joint_states.position[1];
-		act_joint_trajectory.points[0].positions[1] = 3.14159;
-		act_joint_trajectory.points[0].positions[2] = -1*1.45; // -90 plus a little bit
-		act_joint_trajectory.points[0].positions[3] = -1*3.05;
-		act_joint_trajectory.points[0].positions[4] = 0;
-		act_joint_trajectory.points[0].positions[5] = 0;
-                act_joint_trajectory.points[0].positions[6] = 0;
+		// act_joint_trajectory.points[0].positions[0] = joint_states.position[1];
+		// act_joint_trajectory.points[0].positions[1] = 3.14159;
+		// act_joint_trajectory.points[0].positions[2] = -1*1.45; // -90 plus a little bit
+		// act_joint_trajectory.points[0].positions[3] = -1*3.05;
+		// act_joint_trajectory.points[0].positions[4] = 0;
+		// act_joint_trajectory.points[0].positions[5] = 0;
+                // act_joint_trajectory.points[0].positions[6] = 0;
 
-		act_joint_trajectory.points[0].time_from_start = ros::Duration(1.0);
+		// act_joint_trajectory.points[0].time_from_start = ros::Duration(1.0);
                 
-                 joint_trajectory_as.action_goal.goal.trajectory = act_joint_trajectory;
+                 // joint_trajectory_as.action_goal.goal.trajectory = act_joint_trajectory;
 
-                 actionlib::SimpleClientGoalState act_state = \
-                     trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, \
-                     ros::Duration(30.0), ros::Duration(30.0));
-                 ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
+                 // actionlib::SimpleClientGoalState act_state = \
+                     // trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, \
+                     // ros::Duration(30.0), ros::Duration(30.0));
+                 // ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
 
 
 
@@ -398,7 +407,6 @@ int main(int argc, char **argv)
 
                 for(int indy = 0; indy < 6; indy++) {
                     joint_trajectory.points[0].positions[indy+1] = q_des[q_des_indx][indy];	
-			
                 }
 		const double pi = 3.14159; // 180 deg
 		const double pi2 = pi/2;  // 90 deg
