@@ -425,6 +425,17 @@ int main(int argc, char **argv)
                 stowed_point.positions[4] = 0;
                 stowed_point.positions[5] = 1.5;
                 stowed_point.positions[6] = 0;
+
+                // stowed_point.positions[1] = 3.14;
+                // stowed_point.positions[2] = -1.5;
+                // stowed_point.positions[3] = 3.14;
+                // stowed_point.positions[1] = 0;
+                // stowed_point.positions[2] = 0;
+                // stowed_point.positions[3] = 0;
+                // stowed_point.positions[4] = 0;
+                // stowed_point.positions[5] = 0;
+                // stowed_point.positions[6] = 0;
+
                 stowed_point.time_from_start = ros::Duration(5.0);
 
                 act_joint_trajectory.points[0] = stowed_point;
