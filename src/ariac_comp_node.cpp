@@ -40,7 +40,7 @@ sensor_msgs::JointState joint_states;
 
 //BIN LOCATIONS <ID, y location>
 std::map<std::string, double> bin_pos = {
-    {"bin4", .683}, //Or .383
+    {"bin4", 1.5}, //Or .383
     {"bin5", 1.15},
     {"bin6", 1.916}};
 
@@ -333,7 +333,7 @@ int main(int argc, char **argv)
                      ros::Duration(30.0), ros::Duration(30.0));
                 ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
 
-                sleep(10);
+                sleep(5);
 
                 ROS_INFO("SERVER");
 
