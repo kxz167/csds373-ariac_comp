@@ -140,11 +140,11 @@ double sol_filter(double possible_sol[8][6]){
 
         //shoulder pan
         if( shoulder_pan < pi/2 || shoulder_pan > 3 * pi / 2){
-            ROS_INFO("1");
+            ROS_INFO("sp1");
             // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must 
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
             if(shoulder_lift < 3 * pi / 2 && elbow > pi){
-                ROS_INFO("2");
+                ROS_INFO("sp2");
 
                 valid_s = true;
             }
@@ -153,14 +153,14 @@ double sol_filter(double possible_sol[8][6]){
                 // away     -> x > pi       true if shoulder pan is away
         }
         else{
-            ROS_INFO("3");
+            ROS_INFO("sp3");
             // towards  -> x > pi/2 && x < 3pi/2
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
                 // towards  -> x > 3pi/2       true if shoulder pan is towards.
             //elbow joint
                 // towards  -> x < pi       true if shoulder pan is towards
             if(shoulder_lift > 3 * pi / 2 && elbow < pi){
-                ROS_INFO("4");
+                ROS_INFO("sp4");
                 
                 valid_s = true;
             }
