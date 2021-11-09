@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <limits>
 
 //Lab 6
 #include "ur_kinematics/ur_kin.h"
@@ -94,6 +95,25 @@ void armJointCallback(
     const sensor_msgs::JointState::ConstPtr &msg)
 {
     joint_states = sensor_msgs::JointState(*msg);
+}
+
+int optimal_solution(double possible_sol[8][6], int num_solutions){
+    int min_dist_idx = -1;
+    double min_dist = std::numeric_limits<double>::infinity();
+
+    // rosmsg info sensor_msgs::JointState
+    // rostopic echo -n 1 /ariac/arm1/joint_states
+
+    for ( int i = 0; i < num_solutions; i++ ){
+        double temp_dist = dist(possible_sol[i]);
+        if(temp_dist < min_dist){
+            min_dist_idx = i;
+            min_dist = temp_dist;
+        }
+    }
+
+    return min_dist_idx;
+
 }
 
 int valid_solution(double possible_sol[8][6])
