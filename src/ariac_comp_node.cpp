@@ -509,7 +509,9 @@ int main(int argc, char **argv)
                 joint_trajectory.joint_names.push_back("wrist_3_joint");
 
                 joint_trajectory.points.clear();
-                joint_trajectory.points.resize(1);
+
+                int n = 1; // percent change per movement
+                joint_trajectory.points.resize(n);
 
                 // POINT 1: NOT NECESSARY:
                 // joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
@@ -534,19 +536,34 @@ int main(int argc, char **argv)
                 int q_des_indx = sol_filter(q_des);
                 ROS_WARN("%d", q_des_indx);
                 // joint_trajectory.points[0] = stowed_point;
+                
                 //Set waypoint size:
-                joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
-                joint_trajectory.points[0].positions[0] = joint_states.position[1]; //Where the linear actuator is now, replace with bin location
+                // joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+                // joint_trajectory.points[0].positions[0] = joint_states.position[1]; //Where the linear actuator is now, replace with bin location
 
-                for (int indy = 0; indy < 6; indy++)
-                {
-                    joint_trajectory.points[0].positions[indy + 1] = q_des[q_des_indx][indy];
-                }
+                
+                // for (int indy = 0; indy < 6; indy++)
+                // {
+                //     joint_trajectory.points[0].positions[indy + 1] = q_des[q_des_indx][indy];
+                // }
+                
                 const double pi = 3.14159;                                          // 180 deg
                 const double pi2 = pi / 2;                                          // 90 deg
                 const double pi4 = pi / 4;                                          // 45 deg
                 // joint_trajectory.points[0].positions[2] = joint_trajectory.points[0].positions[2] - 6.2; // linear arm actuator, position on its own belt
-                                                                                    //joint_trajectory.points[0].positions[1] = 0; // shoulder pan swivel base, positive CCW
+                                                         
+                //joint_trajectory.points[0].positions[1] = 0; // shoulder pan swivel base, positive CCW
+                for (int i = 1; i <= n; ++i) {
+                    joint_trajectory.points[i-1].positions.resize(7);
+                    joint_trajectory.points[i-1].positions[0] = joint_states.position[1];
+                    for (int indy = 0; indy < 6; indy++){
+                        double incr = (q_des[q_des_indx][indy] - joint_states.position[indy])/n;
+        
+                        joint_trajectory.points[i-1].positions[indy] = i * incr;
+                    }
+                    joint_trajectory.points[i-1].time_from_start = ros::Duration(1.0);
+                }                                                 
+                
                                                                                     //joint_trajectory.points[0].positions[2] = (joint_trajectory.points[0].positions[2] > pi) ? joint_trajectory.points[0].positions[2] - 2*pi : joint_trajectory.points[0].positions[2]; // shoulder lift, pitch
                                                                                     //joint_trajectory.points[0].positions[3] = (joint_trajectory.points[0].positions[3] > pi) ?0; // elbow
                                                                                     //joint_trajectory.points[0].positions[3] - 2*pi : joint_trajectory.points[0].positions[2];
@@ -557,7 +574,7 @@ int main(int argc, char **argv)
                                                                                     //joint_trajectory.points[0].positions[6] = (joint_trajectory.points[0].positions[6] > pi) ?; // wrist 3 orient vacuum
                                                                                     //joint_trajectory.points[0].positions[2] - 2*pi : joint_trajectory.points[0].positions[2];
 
-                joint_trajectory.points[0].time_from_start = ros::Duration(5.0);
+                // joint_trajectory.points[0].time_from_start = ros::Duration(5.0);
 
                 // FOR PUBLISHING TO TOPIC
                 // trajectory_mover.publish(joint_trajectory);
