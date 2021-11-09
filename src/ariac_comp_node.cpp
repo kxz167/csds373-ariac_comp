@@ -133,6 +133,17 @@ int valid_solution(double possible_sol[8][6])
     return 0;
 }
 
+double dist(double solution[6]) {
+	double result = 0;
+	result += pow(solution[0] - joint_states.position[3], 2);
+	result += pow(solution[1] - joint_states.position[2], 2);
+	result += pow(solution[2] - joint_states.position[0], 2);
+	result += pow(solution[3] - joint_states.position[4], 2);
+	result += pow(solution[4] - joint_states.position[5], 2);
+	result += pow(solution[5] - joint_states.position[6], 2);
+	return sqrt(result);
+}
+
 int main(int argc, char **argv)
 {
     //Initialize ros:
