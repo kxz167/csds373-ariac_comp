@@ -41,7 +41,7 @@ sensor_msgs::JointState joint_states;
 
 //BIN LOCATIONS <ID, y location>
 std::map<std::string, double> bin_pos = {
-    {"bin4", 1.5}, //Or .383
+    {"bin4", .383}, //Or .383
     {"bin5", 1.15},
     {"bin6", 1.916}};
 
@@ -97,9 +97,91 @@ void armJointCallback(
     joint_states = sensor_msgs::JointState(*msg);
 }
 
+double dist(double solution[6]) {
+	double result = 0.0;
+	result += pow(solution[0] - joint_states.position[3], 2);
+	result += pow(solution[1] - joint_states.position[2], 2);
+	result += pow(solution[2] - joint_states.position[0], 2);
+	result += pow(solution[3] - joint_states.position[4], 2);
+	result += pow(solution[4] - joint_states.position[5], 2);
+	result += pow(solution[5] - joint_states.position[6], 2);
+	return sqrt(result);
+}
+
+double sol_filter(double possible_sol[8][6]){
+    //shoulder pan
+        // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must 
+        // towards  -> x > pi/2 && x < 3pi/2
+    //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
+        // away     -> x < 3pi/2       true if shoulder pan is away
+        // towards  -> x > 3pi/2       true if shoulder pan is towards.
+    //elbow joint
+        // away     -> x > pi       true if shoulder pan is away
+        // towards  -> x < pi       true if shoulder pan is towards
+    //wrist1
+    //wrist2
+    //wrist3
+
+    for (int i = 0; i < 8; i++)
+    {
+        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
+    }
+    
+    double pi = 3.1415;
+
+    int op_sol = 0;
+    for (int i = 0; i < 8; i++)
+    {
+        double shoulder_pan = possible_sol[i][0];
+        double shoulder_lift = possible_sol[i][1];
+        double elbow = possible_sol[i][2];
+        
+        bool valid_s = false;
+
+        //shoulder pan
+        if( shoulder_pan < pi/2 || shoulder_pan > 3 * pi / 2){
+            ROS_INFO("1");
+            // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must 
+            //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
+            if(shoulder_lift < 3 * pi / 2 && elbow > pi){
+                ROS_INFO("2");
+
+                valid_s = true;
+            }
+                // away     -> x < 3pi/2       true if shoulder pan is away
+            //elbow joint
+                // away     -> x > pi       true if shoulder pan is away
+        }
+        else{
+            ROS_INFO("3");
+            // towards  -> x > pi/2 && x < 3pi/2
+            //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
+                // towards  -> x > 3pi/2       true if shoulder pan is towards.
+            //elbow joint
+                // towards  -> x < pi       true if shoulder pan is towards
+            if(shoulder_lift > 3 * pi / 2 && elbow < pi){
+                ROS_INFO("4");
+                
+                valid_s = true;
+            }
+        }
+
+        if(valid_s){
+            return i;
+        }
+    }
+
+    return 0;
+}
+
 int optimal_solution(double possible_sol[8][6], int num_solutions){
     int min_dist_idx = -1;
     double min_dist = std::numeric_limits<double>::infinity();
+
+    for (int i = 0; i < 8; i++)
+    {
+        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
+    }
 
     // rosmsg info sensor_msgs::JointState
     // rostopic echo -n 1 /ariac/arm1/joint_states
@@ -112,7 +194,7 @@ int optimal_solution(double possible_sol[8][6], int num_solutions){
         }
     }
 
-    return min_dist_idx;
+    return 4;
 
 }
 
@@ -151,17 +233,6 @@ int valid_solution(double possible_sol[8][6])
     // }
 
     return 0;
-}
-
-double dist(double solution[6]) {
-	double result = 0;
-	result += pow(solution[0] - joint_states.position[3], 2);
-	result += pow(solution[1] - joint_states.position[2], 2);
-	result += pow(solution[2] - joint_states.position[0], 2);
-	result += pow(solution[3] - joint_states.position[4], 2);
-	result += pow(solution[4] - joint_states.position[5], 2);
-	result += pow(solution[5] - joint_states.position[6], 2);
-	return sqrt(result);
 }
 
 int main(int argc, char **argv)
@@ -447,7 +518,9 @@ int main(int argc, char **argv)
                 // we want to move immediately so 0 seconds
 
                 // SET WAYPOINT TARGET
-                int q_des_indx = valid_solution(q_des);
+                // int q_des_indx = optimal_solution(q_des, num_sols);
+                // int q_des_indx = optimal_solution(q_des, num_sols);
+                int q_des_indx = sol_filter(q_des);
                 ROS_WARN("%d", q_des_indx);
                 // joint_trajectory.points[0] = stowed_point;
                 //Set waypoint size:
