@@ -26,6 +26,8 @@
 #include "actionlib/client/terminal_state.h"
 #include "control_msgs/FollowJointTrajectoryAction.h"
 
+//CONSTANTS:
+
 //Global Variables
 //Order tracking
 int order_count = 0;
@@ -50,6 +52,40 @@ void printPose(const geometry_msgs::Pose pose)
 {
     ROS_WARN("xyz = (%f, %f, %f)", pose.position.x, pose.position.y, pose.position.z);
     ROS_WARN("wxyz = (%f, %f, %f, %f)", pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
+}
+
+void negatify_trajectory_point(trajectory_msgs::JointTrajectory &traj)
+{
+    // ROS_WARN("Size of: %s", std::to_string(traj.points.size()).c_str());
+    for (int i = 0; i < 10; i++)
+    {
+        // for(int j = 2; j < 6; j++){
+        //
+        // }
+
+        //Modify:
+        if (traj.points[i].positions[2] > 3.14)
+        {
+            traj.points[i].positions[2] -= 6.28;
+        }
+        // ROS_WARN("-----------------");
+        ROS_WARN("%f, %f, %f, %f, %f, %f, %f", traj.points[i].positions[0], traj.points[i].positions[1], traj.points[i].positions[2], traj.points[i].positions[3], traj.points[i].positions[4], traj.points[i].positions[5], traj.points[i].positions[6]);
+        // ROS_WARN("-----------------");
+    }
+    // ROS_WARN("Done printing");
+}
+
+void print_trajectory_point(const trajectory_msgs::JointTrajectory traj)
+{
+    ROS_WARN("Size of: %s", std::to_string(traj.points.size()).c_str());
+    for (trajectory_msgs::JointTrajectoryPoint point : traj.points)
+    {
+
+        ROS_WARN("-----------------");
+        ROS_WARN("%f, %f, %f, %f, %f, %f, %f", point.positions[0], point.positions[1], point.positions[2], point.positions[3], point.positions[4], point.positions[5], point.positions[6]);
+        ROS_WARN("-----------------");
+    }
+    ROS_WARN("Done printing");
 }
 
 // Store the order whenever it is received.
@@ -97,27 +133,31 @@ void armJointCallback(
     joint_states = sensor_msgs::JointState(*msg);
 }
 
-double dist(double solution[6]) {
-	double result = 0.0;
-	result += pow(solution[0] - joint_states.position[3], 2);
-	result += pow(solution[1] - joint_states.position[2], 2);
-	result += pow(solution[2] - joint_states.position[0], 2);
-	result += pow(solution[3] - joint_states.position[4], 2);
-	result += pow(solution[4] - joint_states.position[5], 2);
-	result += pow(solution[5] - joint_states.position[6], 2);
-	return sqrt(result);
+//Find the distance of a single solution
+double dist(double solution[6])
+{
+    double result = 0.0;
+    result += pow(solution[0] - joint_states.position[3], 2);
+    result += pow(solution[1] - joint_states.position[2], 2);
+    result += pow(solution[2] - joint_states.position[0], 2);
+    result += pow(solution[3] - joint_states.position[4], 2);
+    result += pow(solution[4] - joint_states.position[5], 2);
+    result += pow(solution[5] - joint_states.position[6], 2);
+    return sqrt(result);
 }
 
-int sol_filter(double possible_sol[8][6]){
+// Filter out certain angles depending on where it is.
+int sol_filter(double possible_sol[8][6])
+{
     //shoulder pan
-        // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must 
-        // towards  -> x > pi/2 && x < 3pi/2
+    // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must
+    // towards  -> x > pi/2 && x < 3pi/2
     //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
-        // away     -> x < 3pi/2       true if shoulder pan is away
-        // towards  -> x > 3pi/2       true if shoulder pan is towards.
+    // away     -> x < 3pi/2       true if shoulder pan is away
+    // towards  -> x > 3pi/2       true if shoulder pan is towards.
     //elbow joint
-        // away     -> x > pi       true if shoulder pan is away
-        // towards  -> x < pi       true if shoulder pan is towards
+    // away     -> x > pi       true if shoulder pan is away
+    // towards  -> x < pi       true if shoulder pan is towards
     //wrist1
     //wrist2
     //wrist3
@@ -126,7 +166,7 @@ int sol_filter(double possible_sol[8][6]){
     {
         ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
     }
-    
+
     double pi = 3.1415;
 
     int op_sol = 0;
@@ -135,38 +175,44 @@ int sol_filter(double possible_sol[8][6]){
         double shoulder_pan = possible_sol[i][0];
         double shoulder_lift = possible_sol[i][1];
         double elbow = possible_sol[i][2];
-        
+
         bool valid_s = false;
 
         //shoulder pan
-        if( shoulder_pan < pi/2 || shoulder_pan > 3 * pi / 2){
+        if (shoulder_pan < pi / 2 || shoulder_pan > 3 * pi / 2)
+        {
             ROS_INFO("sp1");
-            // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must 
+            // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
-            if(shoulder_lift < 3 * pi / 2 && elbow > pi){
+            if (shoulder_lift < 3 * pi / 2 && elbow > pi)
+            {
                 ROS_INFO("sp2");
 
                 valid_s = true;
             }
-                // away     -> x < 3pi/2       true if shoulder pan is away
+            // away     -> x < 3pi/2       true if shoulder pan is away
             //elbow joint
-                // away     -> x > pi       true if shoulder pan is away
+            // away     -> x > pi       true if shoulder pan is away
         }
-        else{
+        else
+        {
             ROS_INFO("sp3");
             // towards  -> x > pi/2 && x < 3pi/2
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
-                // towards  -> x > 3pi/2       true if shoulder pan is towards.
+            // towards  -> x > 3pi/2       true if shoulder pan is towards.
             //elbow joint
-                // towards  -> x < pi       true if shoulder pan is towards
-            if(shoulder_lift > 3 * pi / 2 && elbow < pi){
+            // towards  -> x < pi       true if shoulder pan is towards
+            if (shoulder_lift > 3 * pi / 2 && elbow < pi)
+            {
                 ROS_INFO("sp4");
-                
+
                 valid_s = true;
             }
         }
 
-        if(valid_s){
+        if (valid_s)
+        {
+            ROS_INFO("%d", i);
             return i;
         }
     }
@@ -174,7 +220,9 @@ int sol_filter(double possible_sol[8][6]){
     return 0;
 }
 
-int optimal_solution(double possible_sol[8][6], int num_solutions){
+// Find the shortest distance
+int optimal_solution(double possible_sol[8][6], int num_solutions)
+{
     int min_dist_idx = -1;
     double min_dist = std::numeric_limits<double>::infinity();
 
@@ -186,18 +234,20 @@ int optimal_solution(double possible_sol[8][6], int num_solutions){
     // rosmsg info sensor_msgs::JointState
     // rostopic echo -n 1 /ariac/arm1/joint_states
 
-    for ( int i = 0; i < num_solutions; i++ ){
+    for (int i = 0; i < num_solutions; i++)
+    {
         double temp_dist = dist(possible_sol[i]);
-        if(temp_dist < min_dist){
+        if (temp_dist < min_dist)
+        {
             min_dist_idx = i;
             min_dist = temp_dist;
         }
     }
 
-    return 4;
-
+    return min_dist_idx;
 }
 
+// DEPRECATED
 int valid_solution(double possible_sol[8][6])
 {
 
@@ -235,45 +285,55 @@ int valid_solution(double possible_sol[8][6])
     return 0;
 }
 
-void linear_move(double T_goal[4][4], int npts, trajectory_msgs::JointTrajectory traj) {
+//LINEAR MOVEMENT:
+void linear_move(double target_x, double target_y, double target_z, int npts, trajectory_msgs::JointTrajectory &traj)
+{
     traj.points.resize(npts);
-    double target_x = T_goal[0][3];
-    double target_y = T_goal[1][3];
-    double target_z = T_goal[2][3];
+    // double target_x = T_goal[0][3];
+    // double target_y = T_goal[1][3];
+    // double target_z = T_goal[2][3];
     double curr_pose[4][4];
-    double angles[6] = {joint_states.position[3], joint_states.position[2], joint_states.position[0], \
+    double angles[6] = {joint_states.position[3], joint_states.position[2], joint_states.position[0],
                         joint_states.position[4], joint_states.position[5], joint_states.position[6]};
     ur_kinematics::forward(&angles[0], &curr_pose[0][0]);
     double curr_loc_x = curr_pose[0][3];
     double curr_loc_y = curr_pose[1][3];
     double curr_loc_z = curr_pose[2][3];
-    double ray[3] {target_x - curr_loc_x, \
-                   target_y - curr_loc_y, \
-                   target_z - curr_loc_z};
+    double ray[3]{target_x - curr_loc_x,
+                  target_y - curr_loc_y,
+                  target_z - curr_loc_z};
     double tr[3] = {ray[0] / npts, ray[1] / npts, ray[2] / npts};
     trajectory_msgs::JointTrajectoryPoint linear_traj[npts];
-    for (int i = 0; i < npts; i++) {
+    for (int i = 0; i < npts; i++)
+    {
         linear_traj[i].positions.resize(7);
-        double intermediate_goal[3] = {curr_loc_x + tr[0] * (i+1), \
-                                            curr_loc_y + tr[1] * (i+1), \
-                                            curr_loc_z + tr[2] * (i+1)};
-            double q_inter[8][6];
-            double T_inter[4][4];
-            T_inter[0][3] = intermediate_goal[0];
-            T_inter[1][3] = intermediate_goal[1];
-            T_inter[2][3] = intermediate_goal[2]; 
-            T_inter[3][3] = 1.0;
-            T_inter[2][0] = -1.0;
-            T_inter[0][1] = -1.0;
-            T_inter[1][2] = 1.0;
-            ur_kinematics::inverse(&T_inter[0][0], &q_inter[0][0], 0.0);
-            int sol = sol_filter(q_inter);
-        for (int ii = 0; ii < 6; ii++) {
-            traj.points[i].positions[ii+1] = q_inter[sol][ii];
+        traj.points[i].positions.resize(7);
+        double intermediate_goal[3] = {curr_loc_x + tr[0] * (i + 1),
+                                       curr_loc_y + tr[1] * (i + 1),
+                                       curr_loc_z + tr[2] * (i + 1)};
+        double q_inter[8][6];
+        double T_inter[4][4];
+
+        T_inter[0][3] = intermediate_goal[0];
+        T_inter[1][3] = intermediate_goal[1];
+        T_inter[2][3] = intermediate_goal[2];
+        T_inter[3][3] = 1.0;
+        T_inter[2][0] = -1.0;
+        T_inter[0][1] = -1.0;
+        T_inter[1][2] = 1.0;
+        ur_kinematics::inverse(&T_inter[0][0], &q_inter[0][0], 0.0);
+        int sol = sol_filter(q_inter);
+        traj.points[i].positions[0] = joint_states.position[1];
+        for (int ii = 0; ii < 6; ii++) //ii=0 -> 5, i = 0 -> 9
+        {
+            // ROS_WARN("FAIL");
+            // traj.points[i].positions[ii + 1] = 1;
+            traj.points[i].positions[ii + 1] = q_inter[sol][ii];
+            // ROS_WARN("FAIL");
         }
-        traj.points[i].time_from_start = ros::Duration(i+1);
+        traj.points[i].time_from_start = ros::Duration(2*i + 1);
     }
-    
+
     // traj.points = linear_traj;
     // return linear_traj;
 }
@@ -416,16 +476,17 @@ int main(int argc, char **argv)
                 printPose(first_model.pose);
                 // printPose(first_pose);
 
+                // STOWED POSITION
+
                 // //MOVE TO LOCATION
                 // //Trajectory Command Message:
                 trajectory_msgs::JointTrajectory act_joint_trajectory;
-                                ROS_INFO("SERVER");
-
+                ROS_INFO("SERVER");
 
                 //     //Bootsrap
                 act_joint_trajectory.header.seq = msg_count++;
                 act_joint_trajectory.header.stamp = ros::Time::now();
-                act_joint_trajectory.header.frame_id = "/world";    //TODO World correct?
+                act_joint_trajectory.header.frame_id = "/world"; //TODO World correct?
                 ROS_INFO("SERVER");
 
                 // act_joint_trajectory.joint_names.clear();
@@ -438,11 +499,9 @@ int main(int argc, char **argv)
                 act_joint_trajectory.joint_names.push_back("wrist_3_joint");
 
                 // ROS_INFO();
-                ROS_INFO("SERVER");
 
                 // act_joint_trajectory.points.clear();
                 act_joint_trajectory.points.resize(1);
-                ROS_INFO("SERVER");
 
                 // // DON'T MOVE ARM:
                 //act_joint_trajectory.points[0].positions.resize(act_joint_trajectory.joint_names.size());
@@ -454,20 +513,16 @@ int main(int argc, char **argv)
                 //        }
                 //   }
                 //}
-                ROS_INFO("SERVER");
 
                 trajectory_msgs::JointTrajectoryPoint stowed_point;
-                ROS_INFO("SERVER");
 
                 // new_point.positions[0] = 1;
                 stowed_point.positions.resize(7);
                 // stowed_point.positions[0] = bin_pos[product_location] + .6;
                 double limit = 2.5;
                 double offset = 0.75;
-                stowed_point.positions[0] = (first_model.pose.position.x > 0) ? \
-                    std::min(bin_pos[product_location] + offset, limit) : \
-                    std::max(bin_pos[product_location] - offset, -1*limit);
-                
+                stowed_point.positions[0] = (first_model.pose.position.x > 0) ? std::min(bin_pos[product_location] + offset, limit) : std::max(bin_pos[product_location] - offset, -1 * limit);
+
                 stowed_point.positions[1] = 3.1415;
                 stowed_point.positions[2] = -1.8;
                 stowed_point.positions[3] = 2.2;
@@ -488,17 +543,19 @@ int main(int argc, char **argv)
                 stowed_point.time_from_start = ros::Duration(5.0);
 
                 act_joint_trajectory.points[0] = stowed_point;
-                
+
                 joint_trajectory_as.action_goal.goal.trajectory = act_joint_trajectory;
 
-                actionlib::SimpleClientGoalState act_state = \
-                     trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, \
-                     ros::Duration(30.0), ros::Duration(30.0));
+                actionlib::SimpleClientGoalState act_state =
+                    trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal,
+                                                  ros::Duration(30.0), ros::Duration(30.0));
                 ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
 
-                sleep(5);
+                sleep(2);
 
                 ROS_INFO("SERVER");
+
+                //SECOND LOCATION
 
                 //LOOK FOR THE TRANSFORM
                 tf2_ros::Buffer tf_buffer;
@@ -539,7 +596,7 @@ int main(int argc, char **argv)
                 //InverseKinematics to find joint angles:
                 int num_sols;
                 num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
-                ROS_INFO("%d", num_sols);
+                // ROS_INFO("%d", num_sols);
 
                 //Trajectory Command Message:
                 trajectory_msgs::JointTrajectory joint_trajectory;
@@ -558,10 +615,10 @@ int main(int argc, char **argv)
                 joint_trajectory.joint_names.push_back("wrist_2_joint");
                 joint_trajectory.joint_names.push_back("wrist_3_joint");
 
-                joint_trajectory.points.clear();
+                // joint_trajectory.points.clear();
 
-                int n = 100; // percent change per movement
-                joint_trajectory.points.resize(n);
+                // int n = 10; // percent change per movement
+                // joint_trajectory.points.resize(n);
 
                 // POINT 1: NOT NECESSARY:
                 // joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
@@ -584,84 +641,102 @@ int main(int argc, char **argv)
                 // int q_des_indx = optimal_solution(q_des, num_sols);
                 // int q_des_indx = optimal_solution(q_des, num_sols);
                 int q_des_indx = sol_filter(q_des);
-                ROS_WARN("%d", q_des_indx);
+                // ROS_WARN("%d", q_des_indx);
                 // joint_trajectory.points[0] = stowed_point;
-                
-                //Set waypoint size:
-                // joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
-                // joint_trajectory.points[0].positions[0] = joint_states.position[1]; //Where the linear actuator is now, replace with bin location
 
-                
-                // for (int indy = 0; indy < 6; indy++)
-                // {
-                //     joint_trajectory.points[0].positions[indy + 1] = q_des[q_des_indx][indy];
-                // }
-                
-                const double pi = 3.14159;                                          // 180 deg
-                const double pi2 = pi / 2;                                          // 90 deg
-                const double pi4 = pi / 4;                                          // 45 deg
+                //Set waypoint size:
+                joint_trajectory.points.resize(1);
+                joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+                // joint_trajectory.points[0].positions[0] = joint_states.position[1]; //Where the linear actuator is now, replace with bin location
+                ROS_WARN("GOOD POSE");
+                ROS_WARN("%f, %f, %f, %f, %f, %f, %f", joint_states.position[1], q_des[q_des_indx][0], q_des[q_des_indx][1], q_des[q_des_indx][2], q_des[q_des_indx][3], q_des[q_des_indx][4], q_des[q_des_indx][5]);
+                joint_trajectory.points[0].positions[0] = (first_model.pose.position.x > 0) ? std::min(bin_pos[product_location] + offset, limit) : std::max(bin_pos[product_location] - offset, -1 * limit);
+                for (int indy = 0; indy < 6; indy++)
+                {   
+                    joint_trajectory.points[0].positions[indy + 1] = q_des[q_des_indx][indy];
+                }
+
+                if (joint_trajectory.points[0].positions[2] > 3.14)
+                {
+                    joint_trajectory.points[0].positions[2] -= 6.28;
+                }                
+                joint_trajectory.points[0].time_from_start = ros::Duration(1);
+
+
+
+                const double pi = 3.14159; // 180 deg
+                const double pi2 = pi / 2; // 90 deg
+                const double pi4 = pi / 4; // 45 deg
                 // joint_trajectory.points[0].positions[2] = joint_trajectory.points[0].positions[2] - 6.2; // linear arm actuator, position on its own belt
 
-
-                ROS_WARN("--------");
-                    ROS_WARN("%f",joint_states.position[3]);
-                    ROS_WARN("%f",joint_states.position[2]);
-                    ROS_WARN("%f",joint_states.position[0]);
-                    ROS_WARN("%f",joint_states.position[4]);
-                    ROS_WARN("%f",joint_states.position[5]);
-                    ROS_WARN("%f",joint_states.position[6]);
+                // ROS_WARN("--------");
+                // ROS_WARN("%f", joint_states.position[3]);
+                // ROS_WARN("%f", joint_states.position[2]);
+                // ROS_WARN("%f", joint_states.position[0]);
+                // ROS_WARN("%f", joint_states.position[4]);
+                // ROS_WARN("%f", joint_states.position[5]);
+                // ROS_WARN("%f", joint_states.position[6]);
 
                 //joint_trajectory.points[0].positions[1] = 0; // shoulder pan swivel base, positive CCW
-                for (int i = 1; i <= n; ++i) {
-                    joint_trajectory.points[i-1].positions.resize(7);
-                    joint_trajectory.points[i-1].positions[0] = joint_states.position[1];
-                    // for (int indy = 0; indy < 6; indy++){
-                    //     double incr = (q_des[q_des_indx][indy] - joint_states.position[indy])/n;
-        
-                    //     joint_trajectory.points[i-1].positions[indy+1] = joint_states.position[indy] + i * incr;
-                    // }
+                // for (int i = 1; i <= n; ++i)
+                // {
+                //     joint_trajectory.points[i - 1].positions.resize(7);
+                //     joint_trajectory.points[i - 1].positions[0] = joint_states.position[1];
+                // for (int indy = 0; indy < 6; indy++){
+                //     double incr = (q_des[q_des_indx][indy] - joint_states.position[indy])/n;
 
-                    // double incr = (q_des[q_des_indx][indy] - joint_states.position[indy])/n;
-                    ROS_WARN("--------");
-                    ROS_WARN("%f",joint_states.position[3] + i * ((q_des[q_des_indx][0] - joint_states.position[3])/n));
-                    ROS_WARN("%f",joint_states.position[2] + i * ((q_des[q_des_indx][1] - joint_states.position[2])/n));
-                    ROS_WARN("%f",joint_states.position[0] + i * ((q_des[q_des_indx][2] - joint_states.position[0])/n));
-                    ROS_WARN("%f",joint_states.position[4] + i * ((q_des[q_des_indx][3] - joint_states.position[4])/n));
-                    ROS_WARN("%f",joint_states.position[5] + i * ((q_des[q_des_indx][4] - joint_states.position[5])/n));
-                    ROS_WARN("%f",joint_states.position[6] + i * ((q_des[q_des_indx][5] - joint_states.position[6])/n));
-                    joint_trajectory.points[i-1].positions[1] = joint_states.position[3] + i * ((q_des[q_des_indx][0] - joint_states.position[3])/n);
-                    joint_trajectory.points[i-1].positions[2] = joint_states.position[2] + i * ((q_des[q_des_indx][1] - joint_states.position[2])/n);
-                    joint_trajectory.points[i-1].positions[3] = joint_states.position[0] + i * ((q_des[q_des_indx][2] - joint_states.position[0])/n);
-                    joint_trajectory.points[i-1].positions[4] = joint_states.position[4] + i * ((q_des[q_des_indx][3] - joint_states.position[4])/n);
-                    joint_trajectory.points[i-1].positions[5] = joint_states.position[5] + i * ((q_des[q_des_indx][4] - joint_states.position[5])/n);
-                    joint_trajectory.points[i-1].positions[6] = joint_states.position[6] + i * ((q_des[q_des_indx][5] - joint_states.position[6])/n);
+                //     joint_trajectory.points[i-1].positions[indy+1] = joint_states.position[indy] + i * incr;
+                // }
 
-                    // result += pow(solution[0] - joint_states.position[3], 2);
-                    // result += pow(solution[1] - joint_states.position[2], 2);
-                    // result += pow(solution[2] - joint_states.position[0], 2);
-                    // result += pow(solution[3] - joint_states.position[4], 2);
-                    // result += pow(solution[4] - joint_states.position[5], 2);
-                    // result += pow(solution[5] - joint_states.position[6], 2);
+                // double incr = (q_des[q_des_indx][indy] - joint_states.position[indy])/n;
+                // ROS_WARN("--------");
+                // ROS_WARN("%f", joint_states.position[3] + i * ((q_des[q_des_indx][0] - joint_states.position[3]) / n));
+                // ROS_WARN("%f", joint_states.position[2] + i * ((q_des[q_des_indx][1] - joint_states.position[2]) / n));
+                // ROS_WARN("%f", joint_states.position[0] + i * ((q_des[q_des_indx][2] - joint_states.position[0]) / n));
+                // ROS_WARN("%f", joint_states.position[4] + i * ((q_des[q_des_indx][3] - joint_states.position[4]) / n));
+                // ROS_WARN("%f", joint_states.position[5] + i * ((q_des[q_des_indx][4] - joint_states.position[5]) / n));
+                // ROS_WARN("%f", joint_states.position[6] + i * ((q_des[q_des_indx][5] - joint_states.position[6]) / n));
+                // joint_trajectory.points[i - 1].positions[1] = joint_states.position[3] + i * ((q_des[q_des_indx][0] - joint_states.position[3]) / n);
+                // joint_trajectory.points[i - 1].positions[2] = joint_states.position[2] + i * ((q_des[q_des_indx][1] - joint_states.position[2]) / n);
+                // joint_trajectory.points[i - 1].positions[3] = joint_states.position[0] + i * ((q_des[q_des_indx][2] - joint_states.position[0]) / n);
+                // joint_trajectory.points[i - 1].positions[4] = joint_states.position[4] + i * ((q_des[q_des_indx][3] - joint_states.position[4]) / n);
+                // joint_trajectory.points[i - 1].positions[5] = joint_states.position[5] + i * ((q_des[q_des_indx][4] - joint_states.position[5]) / n);
+                // joint_trajectory.points[i - 1].positions[6] = joint_states.position[6] + i * ((q_des[q_des_indx][5] - joint_states.position[6]) / n);
 
-                    // ROS_WARN("%f", joint_trajectory.points[i-1].positions[0]);
-                    joint_trajectory.points[i-1].time_from_start = ros::Duration(2 * i);
-                }                                                 
-                
-                                                                                    //joint_trajectory.points[0].positions[2] = (joint_trajectory.points[0].positions[2] > pi) ? joint_trajectory.points[0].positions[2] - 2*pi : joint_trajectory.points[0].positions[2]; // shoulder lift, pitch
-                                                                                    //joint_trajectory.points[0].positions[3] = (joint_trajectory.points[0].positions[3] > pi) ?0; // elbow
-                                                                                    //joint_trajectory.points[0].positions[3] - 2*pi : joint_trajectory.points[0].positions[2];
-                                                                                    //joint_trajectory.points[0].positions[4] = (joint_trajectory.points[0].positions[4] > pi) ?0; // wrist 1
-                                                                                    //joint_trajectory.points[0].positions[4] - 2*pi : joint_trajectory.points[0].positions[2];
-                                                                                    //joint_trajectory.points[0].positions[5] = (joint_trajectory.points[0].positions[5] > pi) ?0; // wrist 2
-                                                                                    //joint_trajectory.points[0].positions[5] - 2*pi : joint_trajectory.points[0].positions[2];
-                                                                                    //joint_trajectory.points[0].positions[6] = (joint_trajectory.points[0].positions[6] > pi) ?; // wrist 3 orient vacuum
-                                                                                    //joint_trajectory.points[0].positions[2] - 2*pi : joint_trajectory.points[0].positions[2];
+                // result += pow(solution[0] - joint_states.position[3], 2);
+                // result += pow(solution[1] - joint_states.position[2], 2);
+                // result += pow(solution[2] - joint_states.position[0], 2);
+                // result += pow(solution[3] - joint_states.position[4], 2);
+                // result += pow(solution[4] - joint_states.position[5], 2);
+                // result += pow(solution[5] - joint_states.position[6], 2);
+
+                // ROS_WARN("%f", joint_trajectory.points[i-1].positions[0]);
+                //     joint_trajectory.points[i - 1].time_from_start = ros::Duration(10 * i);
+                // }
+
+                //joint_trajectory.points[0].positions[2] = (joint_trajectory.points[0].positions[2] > pi) ? joint_trajectory.points[0].positions[2] - 2*pi : joint_trajectory.points[0].positions[2]; // shoulder lift, pitch
+                //joint_trajectory.points[0].positions[3] = (joint_trajectory.points[0].positions[3] > pi) ?0; // elbow
+                //joint_trajectory.points[0].positions[3] - 2*pi : joint_trajectory.points[0].positions[2];
+                //joint_trajectory.points[0].positions[4] = (joint_trajectory.points[0].positions[4] > pi) ?0; // wrist 1
+                //joint_trajectory.points[0].positions[4] - 2*pi : joint_trajectory.points[0].positions[2];
+                //joint_trajectory.points[0].positions[5] = (joint_trajectory.points[0].positions[5] > pi) ?0; // wrist 2
+                //joint_trajectory.points[0].positions[5] - 2*pi : joint_trajectory.points[0].positions[2];
+                //joint_trajectory.points[0].positions[6] = (joint_trajectory.points[0].positions[6] > pi) ?; // wrist 3 orient vacuum
+                //joint_trajectory.points[0].positions[2] - 2*pi : joint_trajectory.points[0].positions[2];
 
                 // joint_trajectory.points[0].time_from_start = ros::Duration(5.0);
 
                 // FOR PUBLISHING TO TOPIC
                 // trajectory_mover.publish(joint_trajectory);
-                linear_move(T_des, 10, joint_trajectory);
+
+                // linear_move(new_pose.position.x, new_pose.position.y, new_pose.position.z + .15, 10, joint_trajectory);
+                // ROS_WARN("Original Trajectories");
+                // print_trajectory_point(joint_trajectory);
+
+                // ROS_WARN("New Trajectories");
+                // ROS_WARN("%f, %f, %f, %f, %f, %f, %f", joint_states.position[1], joint_states.position[3], joint_states.position[2], joint_states.position[0], joint_states.position[4], joint_states.position[5], joint_states.position[6]);
+                // negatify_trajectory_point(joint_trajectory);
+
                 joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
                 actionlib::SimpleClientGoalState state =
                     trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal,
