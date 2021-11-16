@@ -10,6 +10,7 @@
 #include <string>
 #include <map>
 #include <limits>
+// #include "angles/angles.h"
 
 //Lab 6
 #include "ur_kinematics/ur_kin.h"
@@ -525,7 +526,7 @@ int main(int argc, char **argv)
 
                 stowed_point.positions[1] = 3.1415;
                 stowed_point.positions[2] = -1.8;
-                stowed_point.positions[3] = 2.2;
+                stowed_point.positions[3] = 2.6;
                 stowed_point.positions[4] = 0;
                 stowed_point.positions[5] = 1.5;
                 stowed_point.positions[6] = 0;
@@ -659,7 +660,9 @@ int main(int argc, char **argv)
                 if (joint_trajectory.points[0].positions[2] > 3.14)
                 {
                     joint_trajectory.points[0].positions[2] -= 6.28;
-                }                
+                }
+                //Set based on biggest angle -> average angular velocity < desired value.
+                //Or just give it 5 seconds.
                 joint_trajectory.points[0].time_from_start = ros::Duration(5);
 
 
