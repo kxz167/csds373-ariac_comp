@@ -660,7 +660,7 @@ int main(int argc, char **argv)
                 {
                     joint_trajectory.points[0].positions[2] -= 6.28;
                 }                
-                joint_trajectory.points[0].time_from_start = ros::Duration(1);
+                joint_trajectory.points[0].time_from_start = ros::Duration(5);
 
 
 
