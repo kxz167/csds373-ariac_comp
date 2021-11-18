@@ -194,7 +194,7 @@ double dist(double solution[6])
 }
 
 // Filter out certain angles depending on where it is.
-int optimal_solution_filter(double possible_sol[8][6])
+int optimal_solution_index(double possible_sol[8][6])
 {
     //shoulder pan
     // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must
@@ -353,7 +353,7 @@ void linear_move(double target_x, double target_y, double target_z, int npts, tr
         T_inter[0][1] = -1.0;
         T_inter[1][2] = 1.0;
         ur_kinematics::inverse(&T_inter[0][0], &q_inter[0][0], 0.0);
-        int sol = optimal_solution_filter(q_inter);
+        int sol = optimal_solution_index(q_inter);
         traj.points[i].positions[0] = joint_states.position[1];
         for (int ii = 0; ii < 6; ii++) //ii=0 -> 5, i = 0 -> 9
         {
@@ -386,7 +386,7 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose)
     int num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
 
     //Trajectory Command Message:
-    int q_des_indx = optimal_solution_filter(q_des);
+    int q_des_indx = optimal_solution_index(q_des);
 
     //Populate the point
     trajectory_msgs::JointTrajectoryPoint trajectory_point;
