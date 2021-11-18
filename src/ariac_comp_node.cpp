@@ -28,7 +28,19 @@
 #include "control_msgs/FollowJointTrajectoryAction.h"
 
 //CONSTANTS:
+<<<<<<< HEAD
 std::vector<std::string> JOINT_NAMES;
+=======
+std::vector<std::string> JOINT_NAMES{
+    "linear_arm_actuator_joint",
+    "shoulder_pan_joint",
+    "shoulder_lift_joint",
+    "elbow_joint",
+    "wrist_1_joint",
+    "wrist_2_joint",
+    "wrist_3_joint"
+};
+>>>>>>> mek
 
 //Global Variables
 //Order tracking
@@ -43,6 +55,9 @@ std::map<std::string, std::vector<osrf_gear::Model>> items_qcs; //Holds faulty p
 bool populated = false;
 //Joint states:
 sensor_msgs::JointState joint_states;
+
+actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> *trajectory_actionserver; 
+control_msgs::FollowJointTrajectoryAction joint_trajectory_as;
 
 //BIN LOCATIONS <ID, y location>
 std::map<std::string, double> bin_pos = {
@@ -194,7 +209,11 @@ double dist(double solution[6])
 }
 
 // Filter out certain angles depending on where it is.
+<<<<<<< HEAD
 int optimal_solution_index(double possible_sol[8][6])
+=======
+int sol_filter(double possible_sol[8][6])
+>>>>>>> mek
 {
     //shoulder pan
     // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must
@@ -353,7 +372,11 @@ void linear_move(double target_x, double target_y, double target_z, int npts, tr
         T_inter[0][1] = -1.0;
         T_inter[1][2] = 1.0;
         ur_kinematics::inverse(&T_inter[0][0], &q_inter[0][0], 0.0);
+<<<<<<< HEAD
         int sol = optimal_solution_index(q_inter);
+=======
+        int sol = sol_filter(q_inter);
+>>>>>>> mek
         traj.points[i].positions[0] = joint_states.position[1];
         for (int ii = 0; ii < 6; ii++) //ii=0 -> 5, i = 0 -> 9
         {
@@ -386,7 +409,11 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose)
     int num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
 
     //Trajectory Command Message:
+<<<<<<< HEAD
     int q_des_indx = optimal_solution_index(q_des);
+=======
+    int q_des_indx = sol_filter(q_des);
+>>>>>>> mek
 
     //Populate the point
     trajectory_msgs::JointTrajectoryPoint trajectory_point;
@@ -405,7 +432,11 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose)
     return trajectory_point;
 }
 
+<<<<<<< HEAD
 geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string camera){
+=======
+geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string camera) {
+>>>>>>> mek
     //LOOK FOR THE TRANSFORM
     tf2_ros::Buffer tf_buffer;
     tf2_ros::TransformListener tf2_listener(tf_buffer);
@@ -420,6 +451,7 @@ geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string c
     return new_pose;
 }
 
+<<<<<<< HEAD
 // void send_trajectory(bool blocking){
 //     joint_trajectory_as.action_goal.goal.trajectory = act_joint_trajectory;
 
@@ -428,6 +460,17 @@ geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string c
 //                                         ros::Duration(30.0), ros::Duration(30.0));
 //     ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
 // }
+=======
+void send_trajectory(trajectory_msgs::JointTrajectory traj, bool blocking) {
+    
+    joint_trajectory_as.action_goal.goal.trajectory = traj;
+
+    actionlib::SimpleClientGoalState act_state =
+        trajectory_actionserver->sendGoalAndWait(joint_trajectory_as.action_goal.goal,
+                                        ros::Duration(30.0), ros::Duration(30.0));
+    ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
+}
+>>>>>>> mek
 
 int main(int argc, char **argv)
 {
@@ -454,9 +497,12 @@ int main(int argc, char **argv)
     std_srvs::Trigger begin_comp;
     ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("/ariac/start_competition");
 
-    actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-        trajectory_as("/ariac/arm1/arm/follow_joint_trajectory", true);
-    control_msgs::FollowJointTrajectoryAction joint_trajectory_as;
+
+    actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> trajectory_as("/ariac/arm1/arm/follow_joint_trajectory", true); 
+
+
+	trajectory_actionserver = &trajectory_as;
+
 
     //Subscribe to cameras over product bins:
     //ITEMS:
@@ -525,7 +571,7 @@ int main(int argc, char **argv)
             /**
              * FIRST CODE TRY, loops through each order, and each subsequent product, locations, etc. Kept for future assignments
              */
-            //Loop through each shipment
+            // Loop through each shipment
             // for(osrf_gear::Shipment shipment : order_vector.front().shipments){
             //     //And each product within
             //     for(osrf_gear::Product product : shipment.products){
@@ -556,12 +602,12 @@ int main(int argc, char **argv)
             srv.request.material_type = product_type;
 
             //Call the request
-            if (material_location_client.call(srv))
-            {
+            if (material_location_client.call(srv)) {
                 //Were able to find a product location:
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
 
+<<<<<<< HEAD
                 if (items_bin.count(product_type.c_str()) == 0)
                 {
                     ROS_WARN("Camera can not confirm %s is in %s", product_type.c_str(), product_location.c_str());
@@ -606,6 +652,39 @@ int main(int argc, char **argv)
                     trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal,
                                                   ros::Duration(30.0), ros::Duration(30.0));
                 ROS_INFO("Action Server returned with status [%i] %s", state.state_, state.toString().c_str());
+=======
+                // if (items_bin[product_type.c_str()].empty()) {
+                //     ROS_WARN("Camera can not confirm %s is in %s", product_type.c_str(), product_location.c_str());
+                //     break;
+                // }
+
+                std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type.c_str()];
+                for(int i = 0; i < bin_all_items.size(); ++i) {
+                    osrf_gear::Model curr_model = bin_all_items.at(i);
+                    ROS_WARN("Product Position Relative to camera:");
+                    printPose(curr_model.pose);
+
+                    // STOWED POSITION
+                    trajectory_msgs::JointTrajectory act_joint_trajectory = base_trajectory(true);
+                    act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+                    send_trajectory(act_joint_trajectory, true);
+
+                    // Convert reference frame
+                    geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_bin4_frame");
+                    ROS_WARN("Product Position Relative to arm1:");
+                    printPose(new_pose);
+
+                    trajectory_msgs::JointTrajectory joint_trajectory = base_trajectory(false);
+
+                    //Set the next point to be the optimal ik point
+                    joint_trajectory.points.resize(1);
+                    joint_trajectory.points[0] = ik_point(new_pose);
+                    joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+
+                    //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
+                    send_trajectory(joint_trajectory, true);
+                }
+>>>>>>> mek
             }
             else
             {
