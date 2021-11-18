@@ -121,6 +121,8 @@ Asside from the core functionality of the lab, other methods were used to genera
     - This calculates the linear arm actuator position given the target bin and product on the bin.
 - print_pose()
     - This prints out the provided pose with ROS_WARN messages.
+- print_trajectory_points()
+    - Prints out all of the points within a given trajectory.
 - pose_wrt_arm()
     - This transforms poses from certain cameras into the current arm location.
 

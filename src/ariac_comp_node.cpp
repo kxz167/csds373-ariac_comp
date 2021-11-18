@@ -28,9 +28,6 @@
 #include "control_msgs/FollowJointTrajectoryAction.h"
 
 //CONSTANTS:
-<<<<<<< HEAD
-std::vector<std::string> JOINT_NAMES;
-=======
 std::vector<std::string> JOINT_NAMES{
     "linear_arm_actuator_joint",
     "shoulder_pan_joint",
@@ -40,7 +37,6 @@ std::vector<std::string> JOINT_NAMES{
     "wrist_2_joint",
     "wrist_3_joint"
 };
->>>>>>> mek
 
 //Global Variables
 //Order tracking
@@ -116,28 +112,7 @@ void print_pose(const geometry_msgs::Pose pose)
     ROS_WARN("wxyz = (%f, %f, %f, %f)", pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
 }
 
-void negatify_trajectory_point(trajectory_msgs::JointTrajectory &traj)
-{
-    // ROS_WARN("Size of: %s", std::to_string(traj.points.size()).c_str());
-    for (int i = 0; i < 10; i++)
-    {
-        // for(int j = 2; j < 6; j++){
-        //
-        // }
-
-        //Modify:
-        if (traj.points[i].positions[2] > 3.14)
-        {
-            traj.points[i].positions[2] -= 6.28;
-        }
-        // ROS_WARN("-----------------");
-        ROS_WARN("%f, %f, %f, %f, %f, %f, %f", traj.points[i].positions[0], traj.points[i].positions[1], traj.points[i].positions[2], traj.points[i].positions[3], traj.points[i].positions[4], traj.points[i].positions[5], traj.points[i].positions[6]);
-        // ROS_WARN("-----------------");
-    }
-    // ROS_WARN("Done printing");
-}
-
-void print_trajectory_point(const trajectory_msgs::JointTrajectory traj)
+void print_trajectory_points(const trajectory_msgs::JointTrajectory traj)
 {
     ROS_WARN("Size of: %s", std::to_string(traj.points.size()).c_str());
     for (trajectory_msgs::JointTrajectoryPoint point : traj.points)
@@ -151,7 +126,7 @@ void print_trajectory_point(const trajectory_msgs::JointTrajectory traj)
 }
 
 // Store the order whenever it is received.
-void orderCallback(const osrf_gear::Order::ConstPtr &msg)
+void order_callback(const osrf_gear::Order`::ConstPtr &msg)
 {
     ROS_INFO("Order %d Received.", ++order_count);
     order_vector.push_back(*msg);
@@ -209,11 +184,7 @@ double dist(double solution[6])
 }
 
 // Filter out certain angles depending on where it is.
-<<<<<<< HEAD
 int optimal_solution_index(double possible_sol[8][6])
-=======
-int sol_filter(double possible_sol[8][6])
->>>>>>> mek
 {
     //shoulder pan
     // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must
@@ -372,11 +343,7 @@ void linear_move(double target_x, double target_y, double target_z, int npts, tr
         T_inter[0][1] = -1.0;
         T_inter[1][2] = 1.0;
         ur_kinematics::inverse(&T_inter[0][0], &q_inter[0][0], 0.0);
-<<<<<<< HEAD
         int sol = optimal_solution_index(q_inter);
-=======
-        int sol = sol_filter(q_inter);
->>>>>>> mek
         traj.points[i].positions[0] = joint_states.position[1];
         for (int ii = 0; ii < 6; ii++) //ii=0 -> 5, i = 0 -> 9
         {
@@ -409,11 +376,7 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose)
     int num_sols = ur_kinematics::inverse(&T_des[0][0], &q_des[0][0], 0.0);
 
     //Trajectory Command Message:
-<<<<<<< HEAD
     int q_des_indx = optimal_solution_index(q_des);
-=======
-    int q_des_indx = sol_filter(q_des);
->>>>>>> mek
 
     //Populate the point
     trajectory_msgs::JointTrajectoryPoint trajectory_point;
@@ -432,11 +395,7 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose)
     return trajectory_point;
 }
 
-<<<<<<< HEAD
-geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string camera){
-=======
 geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string camera) {
->>>>>>> mek
     //LOOK FOR THE TRANSFORM
     tf2_ros::Buffer tf_buffer;
     tf2_ros::TransformListener tf2_listener(tf_buffer);
@@ -451,16 +410,6 @@ geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string c
     return new_pose;
 }
 
-<<<<<<< HEAD
-// void send_trajectory(bool blocking){
-//     joint_trajectory_as.action_goal.goal.trajectory = act_joint_trajectory;
-
-//     actionlib::SimpleClientGoalState act_state =
-//         trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal,
-//                                         ros::Duration(30.0), ros::Duration(30.0));
-//     ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
-// }
-=======
 void send_trajectory(trajectory_msgs::JointTrajectory traj, bool blocking) {
     
     joint_trajectory_as.action_goal.goal.trajectory = traj;
@@ -470,19 +419,9 @@ void send_trajectory(trajectory_msgs::JointTrajectory traj, bool blocking) {
                                         ros::Duration(30.0), ros::Duration(30.0));
     ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
 }
->>>>>>> mek
 
 int main(int argc, char **argv)
 {
-    //INITILAIZE CONSTANTS:
-    JOINT_NAMES.push_back("linear_arm_actuator_joint");
-    JOINT_NAMES.push_back("shoulder_pan_joint");
-    JOINT_NAMES.push_back("shoulder_lift_joint");
-    JOINT_NAMES.push_back("elbow_joint");
-    JOINT_NAMES.push_back("wrist_1_joint");
-    JOINT_NAMES.push_back("wrist_2_joint");
-    JOINT_NAMES.push_back("wrist_3_joint");
-
     //Initialize ros:
     ros::init(argc, argv, "ariac_comp_node");
 
@@ -520,7 +459,7 @@ int main(int argc, char **argv)
     ros::Subscriber camera_sub_q2 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/quality_control_sensor_2", 1000, boost::bind(cameraCallback, _1, &items_qcs));
 
     //Subscribe to incoming orders:
-    ros::Subscriber orderSub = n.subscribe("/ariac/orders", 1000, orderCallback);
+    ros::Subscriber orderSub = n.subscribe("/ariac/orders", 1000, order_callback);
 
     //Create the material location service for determining location of products
     ros::ServiceClient material_location_client = n.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
@@ -607,52 +546,6 @@ int main(int argc, char **argv)
                 std::string product_location = srv.response.storage_units.front().unit_id;
                 ROS_INFO("Located In   : %s", product_location.c_str());
 
-<<<<<<< HEAD
-                if (items_bin.count(product_type.c_str()) == 0)
-                {
-                    ROS_WARN("Camera can not confirm %s is in %s", product_type.c_str(), product_location.c_str());
-                    break;
-                }
-
-                osrf_gear::Model first_model = items_bin[product_type.c_str()].front();
-                
-                ROS_WARN("Product Position Relative to camera:");
-                print_pose(first_model.pose);
-
-                // STOWED POSITION
-                trajectory_msgs::JointTrajectory act_joint_trajectory = base_trajectory(true);
-                act_joint_trajectory.points[0].positions[0] = actuator_position(first_model.pose, product_location);
-                
-                joint_trajectory_as.action_goal.goal.trajectory = act_joint_trajectory;
-
-                actionlib::SimpleClientGoalState act_state =
-                    trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal,
-                                                  ros::Duration(30.0), ros::Duration(30.0));
-                ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
-
-                sleep(2);
-
-                geometry_msgs::Pose new_pose = pose_wrt_arm(first_model.pose, "logical_camera_bin4_frame");
-                ROS_WARN("Product Position Relative to arm1:");
-                print_pose(new_pose);
-
-                trajectory_msgs::JointTrajectory joint_trajectory = base_trajectory(false);
-
-                //Set the next point to be the optimal ik point
-                joint_trajectory.points.resize(1);
-                joint_trajectory.points[0] = ik_point(new_pose);
-                joint_trajectory.points[0].positions[0] = actuator_position(first_model.pose, product_location);
-                
-                // FOR PUBLISHING TO TOPIC
-                // trajectory_mover.publish(joint_trajectory);
-
-                //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
-                joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
-                actionlib::SimpleClientGoalState state =
-                    trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal,
-                                                  ros::Duration(30.0), ros::Duration(30.0));
-                ROS_INFO("Action Server returned with status [%i] %s", state.state_, state.toString().c_str());
-=======
                 // if (items_bin[product_type.c_str()].empty()) {
                 //     ROS_WARN("Camera can not confirm %s is in %s", product_type.c_str(), product_location.c_str());
                 //     break;
@@ -662,7 +555,7 @@ int main(int argc, char **argv)
                 for(int i = 0; i < bin_all_items.size(); ++i) {
                     osrf_gear::Model curr_model = bin_all_items.at(i);
                     ROS_WARN("Product Position Relative to camera:");
-                    printPose(curr_model.pose);
+                    print_pose(curr_model.pose);
 
                     // STOWED POSITION
                     trajectory_msgs::JointTrajectory act_joint_trajectory = base_trajectory(true);
@@ -672,7 +565,7 @@ int main(int argc, char **argv)
                     // Convert reference frame
                     geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_bin4_frame");
                     ROS_WARN("Product Position Relative to arm1:");
-                    printPose(new_pose);
+                    print_pose(new_pose);
 
                     trajectory_msgs::JointTrajectory joint_trajectory = base_trajectory(false);
 
@@ -684,7 +577,6 @@ int main(int argc, char **argv)
                     //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
                     send_trajectory(joint_trajectory, true);
                 }
->>>>>>> mek
             }
             else
             {
