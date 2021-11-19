@@ -4,6 +4,7 @@
 #include "osrf_gear/Order.h"
 #include "osrf_gear/GetMaterialLocations.h"
 #include "osrf_gear/LogicalCameraImage.h"
+#include "osrf_gear/VacuumGripperControl.h"
 #include "osrf_gear/Model.h"
 #include "geometry_msgs/Pose.h"
 #include <vector>
@@ -335,7 +336,7 @@ void linear_move(double target_x, double target_y, double target_z, int npts, tr
     // return linear_traj;
 }
 
-trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose){
+trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose, double height){
     //LAB 6 Arm Movement:
     double T_des[4][4] = {0.0};
     double q_des[8][6] = {0.0};
@@ -343,7 +344,7 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose)
     // What we are shooting for
     T_des[0][3] = desired_pose.position.x;
     T_des[1][3] = desired_pose.position.y;
-    T_des[2][3] = desired_pose.position.z + .15; //Place slightly above model
+    T_des[2][3] = desired_pose.position.z + height; //Place slightly above model
     T_des[3][3] = 1.0;
 
     //End effector ROTATION
@@ -420,6 +421,7 @@ int main(int argc, char **argv)
 
 
 	trajectory_actionserver = &trajectory_as;
+    ros::ServiceClient gripper_client = n.serviceClient<osrf_gear::VacuumGripperControl>("ariac/arm1/gripper/control");
 
 
     //Subscribe to cameras over product bins:
@@ -550,11 +552,27 @@ int main(int argc, char **argv)
 
                     //Set the next point to be the optimal ik point
                     joint_trajectory.points.resize(1);
-                    joint_trajectory.points[0] = ik_point(new_pose);
+                    joint_trajectory.points[0] = ik_point(new_pose, 0.1); // pause above product
                     joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
 
                     //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
                     send_trajectory(joint_trajectory, true);
+
+					osrf_gear::VacuumGripperControl srv;
+                    srv.request.enable = true;
+                    
+                    if(gripper_client.call(srv)) {
+                        while(!srv.response.success) {
+                            gripper_client.call(srv);
+                        }
+						ROS_INFO("VACUUM ENABLED");       
+                    }
+                    else {
+                        ROS_WARN("Could not reach the vacuum service.");
+                    }
+
+					
+
                 }
             }
             else
