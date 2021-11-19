@@ -95,8 +95,10 @@ rosrun ariac_comp ariac_comp_node
 - The location where orders are taken in (put into a vector) and when they are processed differ. As a result, some differences may be noticeable (even though spinOnce() should force synchronicity).
 - Additionally, since there are components within the main order processing loop that requires certain logical camera or joint information (which isn't guarenteed to be populated), we will go ahead and keep looping without processing orders until the corresponding information has been captured.
 
-### Angle filtering:
-All filtering here is meant to 
+### Angle filtering / Angle modifications:
+All filtering here is meant to select an optimal solution to choose. The criteria are the following:
+- If the robot is facing away from the bins, the lift and elbows need to be positioned in an up position, similarly to when the root is facing towards the bins.
+- The wrist must be modified so that when it twists out, the angles will not overlap.
 
 ### Crucial methods:
 
@@ -125,19 +127,17 @@ Asside from the core functionality of the lab, other methods were used to genera
     - Prints out all of the points within a given trajectory.
 - pose_wrt_arm()
     - This transforms poses from certain cameras into the current arm location.
-
-
+- send_trajectory()
+    - Sends a single trajectory to the action server and waits for response.
 
 ## Auxilery methods:
 Our group had substantial issues with bad behavior of the ariac arm1. These included various segfaults, and collisions with bins or cameras. To try and remedy these problems, we implemented various other methods to try and move the arm accordingly.
 
 The fixes provided by Lee does not appear to have propogated to our machines and fixes then had to be added.
 
-dist()
-
-
-
-
-
-*NOTES:* 
-- While this DOES output the first order, given that orders will continue to flow in, if left open, more subsequent orders will arrive and be processed. 
+- dist()
+    - This calculated the shortest distance the robot arm would have to move.
+- optimal_solution()
+    - Utilizes dist() in order to create the shortest path trajectory between allarms
+- linear_move()
+    - This calculates n points between the end effector and the part in a straight line. Was created when it appeared the arm was not moving in a straight line.

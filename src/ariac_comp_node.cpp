@@ -87,9 +87,15 @@ trajectory_msgs::JointTrajectory base_trajectory(bool default_pose){
 
 
 void patch_trajectory_point(trajectory_msgs::JointTrajectoryPoint &trajectory_point){
+    //Preents running into the bins
     if (trajectory_point.positions[2] > 3.14)
     {
         trajectory_point.positions[2] -= 6.28;
+    }
+
+    //Prevents wrist clipping
+    if (trajectory_point.positions[4] > 3.14){
+        trajectory_point.positions[4] -= 6.28;
     }
 }
 
@@ -126,7 +132,7 @@ void print_trajectory_points(const trajectory_msgs::JointTrajectory traj)
 }
 
 // Store the order whenever it is received.
-void order_callback(const osrf_gear::Order`::ConstPtr &msg)
+void order_callback(const osrf_gear::Order::ConstPtr &msg)
 {
     ROS_INFO("Order %d Received.", ++order_count);
     order_vector.push_back(*msg);
@@ -218,12 +224,12 @@ int optimal_solution_index(double possible_sol[8][6])
         //shoulder pan
         if (shoulder_pan < pi / 2 || shoulder_pan > 3 * pi / 2)
         {
-            ROS_INFO("sp1");
+            // ROS_INFO("sp1");
             // away     -> x < pi/2 || x > 3pi/2    Means that the shoulder must
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
             if (shoulder_lift < 3 * pi / 2 && elbow > pi)
             {
-                ROS_INFO("sp2");
+                // ROS_INFO("sp2");
 
                 valid_s = true;
             }
@@ -233,7 +239,7 @@ int optimal_solution_index(double possible_sol[8][6])
         }
         else
         {
-            ROS_INFO("sp3");
+            // ROS_INFO("sp3");
             // towards  -> x > pi/2 && x < 3pi/2
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
             // towards  -> x > 3pi/2       true if shoulder pan is towards.
@@ -241,7 +247,7 @@ int optimal_solution_index(double possible_sol[8][6])
             // towards  -> x < pi       true if shoulder pan is towards
             if (shoulder_lift > 3 * pi / 2 && elbow < pi)
             {
-                ROS_INFO("sp4");
+                // ROS_INFO("sp4");
 
                 valid_s = true;
             }
@@ -249,7 +255,7 @@ int optimal_solution_index(double possible_sol[8][6])
 
         if (valid_s)
         {
-            ROS_INFO("%d", i);
+            // ROS_INFO("%d", i);
             return i;
         }
     }
@@ -281,34 +287,7 @@ int optimal_solution(double possible_sol[8][6], int num_solutions)
     return min_dist_idx;
 }
 
-// DEPRECATED
-int valid_solution(double possible_sol[8][6])
-{
-
-    for (int i = 0; i < 8; i++)
-    {
-        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
-    }
-    int op_sol = 0;
-    //CAUSES SEGFAULT:
-    for (int i = 0; i < 8; i++)
-    {
-        // ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
-
-        if (possible_sol[i][1] > 3.14159 || possible_sol[i][2] > 3.14)
-        {
-            op_sol++;
-        }
-        else
-        {
-            return 0;
-        }
-    }
-
-    return 0;
-}
-
-//LINEAR MOVEMENT:
+//AUXILIARY METHODS:
 void linear_move(double target_x, double target_y, double target_z, int npts, trajectory_msgs::JointTrajectory &traj)
 {
     traj.points.resize(npts);
@@ -355,7 +334,7 @@ void linear_move(double target_x, double target_y, double target_z, int npts, tr
     // traj.points = linear_traj;
     // return linear_traj;
 }
-//  int inverse(const double* T, double* q_sols, double q6_des=0.0);
+
 trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose){
     //LAB 6 Arm Movement:
     double T_des[4][4] = {0.0};
