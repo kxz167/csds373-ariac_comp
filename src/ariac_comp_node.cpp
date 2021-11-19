@@ -555,6 +555,14 @@ int main(int argc, char **argv)
 
                     //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
                     send_trajectory(joint_trajectory, true);
+
+                    //Position above.
+
+                    //Enable vacuum gripper
+
+                    //Position right at
+
+                    //position above.
                 }
             }
             else
