@@ -41,6 +41,7 @@ std::vector<std::string> JOINT_NAMES{
 
 //Global Variables
 //Order tracking
+ros::ServiceClient gc_global;
 int order_count = 0;
 int msg_count = 0;
 std::vector<osrf_gear::Order> order_vector;
@@ -400,6 +401,61 @@ void send_trajectory(trajectory_msgs::JointTrajectory traj, bool blocking) {
     ROS_INFO("Action Server returned with status [%i] %s", act_state.state_, act_state.toString().c_str());
 }
 
+void set_gripper(bool status){
+    osrf_gear::VacuumGripperControl srv;
+    srv.request.enable = status;
+    
+    if(gc_global.call(srv)) {
+        while(!srv.response.success) {
+            gc_global.call(srv);
+        }
+        ROS_INFO("VACUUM %s", status ? "ENABLED" : "DISABLED");       
+    }
+    else {
+        ROS_WARN("Could not reach the vacuum service.");
+    }
+}
+
+void enable_gripper(){
+    set_gripper(true);
+}
+
+void disable_gripper(){
+    set_gripper(false);
+}
+
+void pickup_part(geometry_msgs::Pose desired_pose, double actuator){
+    enable_gripper();
+    //Position right at
+    trajectory_msgs::JointTrajectory grip_joint_trajectory = base_trajectory(false);
+
+    //Set the next point to be the optimal ik point
+    grip_joint_trajectory.points.resize(2);
+    grip_joint_trajectory.points[0] = ik_point(desired_pose, 0.05, 1); // pause above product
+    grip_joint_trajectory.points[0].positions[0] = actuator;
+
+    grip_joint_trajectory.points[1] = ik_point(desired_pose, 0.015, 3); // pause above product
+    grip_joint_trajectory.points[1].positions[0] = actuator;
+
+    //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
+    //position above.
+
+    send_trajectory(grip_joint_trajectory, true);
+    sleep(1);
+
+    grip_joint_trajectory = base_trajectory(false);
+    grip_joint_trajectory.points.resize(2);
+    grip_joint_trajectory.points[0] = ik_point(desired_pose, 0.015, 1); // pause above product
+    grip_joint_trajectory.points[0].positions[0] = actuator;
+
+    grip_joint_trajectory.points[1] = ik_point(desired_pose, 0.05, 3); // pause above product
+    grip_joint_trajectory.points[1].positions[0] = actuator;
+
+    send_trajectory(grip_joint_trajectory, true);
+
+    disable_gripper();
+}
+
 int main(int argc, char **argv)
 {
     //Initialize ros:
@@ -418,11 +474,10 @@ int main(int argc, char **argv)
 
 
     actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> trajectory_as("/ariac/arm1/arm/follow_joint_trajectory", true); 
-
-
 	trajectory_actionserver = &trajectory_as;
-    ros::ServiceClient gripper_client = n.serviceClient<osrf_gear::VacuumGripperControl>("ariac/arm1/gripper/control");
 
+    ros::ServiceClient gripper_client = n.serviceClient<osrf_gear::VacuumGripperControl>("ariac/arm1/gripper/control");
+    gc_global = gripper_client;
 
     //Subscribe to cameras over product bins:
     //ITEMS:
@@ -534,6 +589,7 @@ int main(int argc, char **argv)
 
                 std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type.c_str()];
                 for(int i = 0; i < bin_all_items.size(); ++i) {
+                    disable_gripper();
                     osrf_gear::Model curr_model = bin_all_items.at(i);
                     ROS_WARN("Product Position Relative to camera:");
                     print_pose(curr_model.pose);
@@ -552,53 +608,32 @@ int main(int argc, char **argv)
 
                     //Set the next point to be the optimal ik point
                     joint_trajectory.points.resize(1);
-                    joint_trajectory.points[0] = ik_point(new_pose, 0.1, 5); // pause above product
+                    joint_trajectory.points[0] = ik_point(new_pose, 0.05, 5); // pause above product
                     joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
 
                     //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
                     send_trajectory(joint_trajectory, true);
                     
-					osrf_gear::VacuumGripperControl srv;
-                    srv.request.enable = true;
-                    
-                    if(gripper_client.call(srv)) {
-                        while(!srv.response.success) {
-                            gripper_client.call(srv);
-                        }
-						ROS_INFO("VACUUM ENABLED");       
-                    }
-                    else {
-                        ROS_WARN("Could not reach the vacuum service.");
-                    }
-                    
-                    //Position right at
-                    trajectory_msgs::JointTrajectory grip_joint_trajectory = base_trajectory(false);
+                    pickup_part(new_pose, actuator_position(curr_model.pose, product_location));
 
-                    //Set the next point to be the optimal ik point
-                    grip_joint_trajectory.points.resize(2);
-                    grip_joint_trajectory.points[0] = ik_point(new_pose, 0.02, 5); // pause above product
-                    grip_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
-                    grip_joint_trajectory.points[1] = ik_point(new_pose, 0.1, 10); // pause above product
-                    grip_joint_trajectory.points[1].positions[0] = actuator_position(curr_model.pose, product_location);
+                    // enable_gripper();
+                    // //Position right at
+                    // trajectory_msgs::JointTrajectory grip_joint_trajectory = base_trajectory(false);
 
-                    //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
-                    send_trajectory(grip_joint_trajectory, true);
-                    //position above.
+                    // //Set the next point to be the optimal ik point
+                    // grip_joint_trajectory.points.resize(2);
+                    // grip_joint_trajectory.points[0] = ik_point(new_pose, 0.02, 3); // pause above product
+                    // grip_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+                    // grip_joint_trajectory.points[1] = ik_point(new_pose, 0.05, 7); // pause above product
+                    // grip_joint_trajectory.points[1].positions[0] = actuator_position(curr_model.pose, product_location);
 
-                    send_trajectory(joint_trajectory, true);
+                    // //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
+                    // send_trajectory(grip_joint_trajectory, true);
+                    // //position above.
+
+                    // // send_trajectory(joint_trajectory, true);
                     
-					osrf_gear::VacuumGripperControl srv_disable;
-                    srv.request.enable = false;
-                    
-                    if(gripper_client.call(srv_disable)) {
-                        while(!srv.response.success) {
-                            gripper_client.call(srv_disable);
-                        }
-						ROS_INFO("VACUUM DISABLED");       
-                    }
-                    else {
-                        ROS_WARN("Could not reach the vacuum service.");
-                    }
+                    // disable_gripper();
 
                 }
             }
