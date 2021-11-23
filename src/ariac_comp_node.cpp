@@ -61,7 +61,9 @@ control_msgs::FollowJointTrajectoryAction joint_trajectory_as;
 std::map<std::string, double> bin_pos = {
     {"bin4", .383}, //Or .383
     {"bin5", 1.15},
-    {"bin6", 1.916}};
+    {"bin6", 1.4},
+    {"agv1", 1.5},
+    {"agv2", -2.0}};
 
 trajectory_msgs::JointTrajectory base_trajectory(bool default_pose){
     trajectory_msgs::JointTrajectory joint_trajectory;
@@ -469,7 +471,6 @@ void pickup_part(geometry_msgs::Pose desired_pose, double actuator){
 
     send_trajectory(grip_joint_trajectory, true);
 
-    disable_gripper();  // drop product
 }
 
 int main(int argc, char **argv)
@@ -604,7 +605,8 @@ int main(int argc, char **argv)
                 // }
 
                 std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type.c_str()];
-                for(int i = 0; i < bin_all_items.size(); ++i) {
+                // for(int i = 0; i < bin_all_items.size(); ++i) {
+                    int i = 0;
                     disable_gripper();
                     osrf_gear::Model curr_model = bin_all_items.at(i);
                     ROS_WARN("Product Position Relative to camera:");
@@ -631,6 +633,26 @@ int main(int argc, char **argv)
                     send_trajectory(joint_trajectory, true);
                     
                     pickup_part(new_pose, actuator_position(curr_model.pose, product_location));
+                    
+                    // GO TO STOWED POSITION
+                    act_joint_trajectory = base_trajectory(true);
+                    act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+                    send_trajectory(act_joint_trajectory, true);
+
+                    // GO TO AGV1
+                    act_joint_trajectory = base_trajectory(true);
+                    act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, "agv1");
+                    act_joint_trajectory.points[0].positions[1] = 1.57;
+                    send_trajectory(act_joint_trajectory, true);
+                    
+                    // CONVERT FRAME TO LOGICAL CAMERA AGV1
+                    geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_agv1_frame");
+                    ROS_WARN("Product Position Relative to arm1:");
+                    print_pose(new_pose);
+
+                    // EXTEND IN FRONT OF CAMERA FACING DOWN
+
+                    // DROP PART
 
                     // enable_gripper();
                     // //Position right at
@@ -651,7 +673,7 @@ int main(int argc, char **argv)
                     
                     // disable_gripper();
 
-                }
+                // }
             }
             else
             {
