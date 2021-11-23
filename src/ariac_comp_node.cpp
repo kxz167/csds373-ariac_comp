@@ -89,14 +89,18 @@ trajectory_msgs::JointTrajectory base_trajectory(bool default_pose){
 
 
 void patch_trajectory_point(trajectory_msgs::JointTrajectoryPoint &trajectory_point){
-    //Preents running into the bins
-    if (trajectory_point.positions[2] > 3.14)
-    {
+    //Prevents running into the bins
+    if (trajectory_point.positions[2] > 3.14) {
         trajectory_point.positions[2] -= 6.28;
     }
 
+    // Prevents excessive turning
+    if (trajectory_point.positions[3] > 3.14) {
+        trajectory_point.positions[3] -= 6.28;
+    }
+
     //Prevents wrist clipping
-    if (trajectory_point.positions[4] > 3.14){
+    if (trajectory_point.positions[4] > 3.14) {
         trajectory_point.positions[4] -= 6.28;
     }
 }
@@ -188,6 +192,7 @@ double dist(double solution[6])
     result += pow(solution[3] - joint_states.position[4], 2);
     result += pow(solution[4] - joint_states.position[5], 2);
     result += pow(solution[5] - joint_states.position[6], 2);
+    result /= 6;
     return sqrt(result);
 }
 
@@ -214,13 +219,15 @@ int optimal_solution_index(double possible_sol[8][6])
 
     double pi = 3.1415;
 
-    int op_sol = 0;
+    bool op_sol[8] = {0, 0, 0, 0, 0, 0, 0, 0};
     for (int i = 0; i < 8; i++)
     {
         double shoulder_pan = possible_sol[i][0];
         double shoulder_lift = possible_sol[i][1];
         double elbow = possible_sol[i][2];
-
+        double wrist1 = possible_sol[i][3];
+        double wrist2 = possible_sol[i][4];
+        double wrist3 = possible_sol[i][5];
         bool valid_s = false;
 
         //shoulder pan
@@ -231,9 +238,11 @@ int optimal_solution_index(double possible_sol[8][6])
             //shoulder lift     YOU ALWAYS WANT THIS TO BE greater than pi
             if (shoulder_lift < 3 * pi / 2 && elbow > pi)
             {
-                // ROS_INFO("sp2");
-
-                valid_s = true;
+                    // ROS_INFO("sp2");
+                    if (wrist2 > pi) {
+                        valid_s = true;
+                    }
+                    
             }
             // away     -> x < 3pi/2       true if shoulder pan is away
             //elbow joint
@@ -250,8 +259,11 @@ int optimal_solution_index(double possible_sol[8][6])
             if (shoulder_lift > 3 * pi / 2 && elbow < pi)
             {
                 // ROS_INFO("sp4");
-
-                valid_s = true;
+                    // ROS_INFO("sp2");
+                    if (wrist2 > pi) {
+                        valid_s = true;
+                    }
+                    
             }
         }
 
@@ -262,7 +274,7 @@ int optimal_solution_index(double possible_sol[8][6])
         }
     }
 
-    return 0;
+    return -1;
 }
 
 // Find the shortest distance
@@ -365,11 +377,11 @@ trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose,
     for (int indy = 0; indy < 6; indy++)
     {   
         trajectory_point.positions[indy + 1] = q_des[q_des_indx][indy];
+        ROS_INFO("%f", q_des[q_des_indx][indy]);
     }
-
+    ROS_INFO(" ");
     //Modify the elbow to prevent crashing into the big   
     patch_trajectory_point(trajectory_point);
-    
     //Set speed
     trajectory_point.time_from_start = ros::Duration(duration);
 
@@ -431,10 +443,12 @@ void pickup_part(geometry_msgs::Pose desired_pose, double actuator){
 
     //Set the next point to be the optimal ik point
     grip_joint_trajectory.points.resize(2);
+    ROS_INFO("From up");
     grip_joint_trajectory.points[0] = ik_point(desired_pose, 0.05, 1); // pause above product
     grip_joint_trajectory.points[0].positions[0] = actuator;
 
-    grip_joint_trajectory.points[1] = ik_point(desired_pose, 0.015, 3); // pause above product
+    ROS_INFO("Going down");
+    grip_joint_trajectory.points[1] = ik_point(desired_pose, 0.015, 2); // pause above product
     grip_joint_trajectory.points[1].positions[0] = actuator;
 
     //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
@@ -445,15 +459,17 @@ void pickup_part(geometry_msgs::Pose desired_pose, double actuator){
 
     grip_joint_trajectory = base_trajectory(false);
     grip_joint_trajectory.points.resize(2);
-    grip_joint_trajectory.points[0] = ik_point(desired_pose, 0.015, 1); // pause above product
+    ROS_INFO("From down");
+    grip_joint_trajectory.points[0] = ik_point(desired_pose, 0.02, 1); // pause at product
     grip_joint_trajectory.points[0].positions[0] = actuator;
 
-    grip_joint_trajectory.points[1] = ik_point(desired_pose, 0.05, 3); // pause above product
+    ROS_INFO("Going up");
+    grip_joint_trajectory.points[1] = ik_point(desired_pose, 0.1, 2); // move up with product
     grip_joint_trajectory.points[1].positions[0] = actuator;
 
     send_trajectory(grip_joint_trajectory, true);
 
-    disable_gripper();
+    disable_gripper();  // drop product
 }
 
 int main(int argc, char **argv)
@@ -608,7 +624,7 @@ int main(int argc, char **argv)
 
                     //Set the next point to be the optimal ik point
                     joint_trajectory.points.resize(1);
-                    joint_trajectory.points[0] = ik_point(new_pose, 0.05, 5); // pause above product
+                    joint_trajectory.points[0] = ik_point(new_pose, 0.05, 3); // pause above product
                     joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
 
                     //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
