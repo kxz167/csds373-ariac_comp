@@ -660,22 +660,24 @@ int main(int argc, char **argv)
                     // int call_succeeded = material_location_client.call(srv);
                     // ROS_INFO("%d", call_succeeded);
                     if(material_location_client.call(srv)){
-                        std::string product_location = srv.response.storage_units.front().unit_id;
+                        //GET THE FIRST NON BELT PRODUCT LOCATION:
+                        std::string product_location;
                         ROS_INFO("Located In   : %s", product_location.c_str());
                         for(osrf_gear::StorageUnit unit : srv.response.storage_units){
-                            
-                            if(unit.unit_id != "belt"){ // WE ARE NOT REPSONSIBLE FOR THE BELT
+                            if(unit.unit_id != "belt"){ // WE ARE NOT REPSONSIBLE FOR THE BELT, get first not belt
+                                product_location = unit.unit_id;
                                 break;
                             }
                         }
-                        //The location of the parts we need to pick from
-                        ROS_INFO("Product Location: %s", unit.unit_id.c_str());
+                        ROS_INFO("Product Location: %s", product_location.c_str());
 
-                        std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type.c_str()];
-                        // for(int i = 0; i < bin_all_items.size(); ++i) {
-                        int i = 0;
+                        //GET ALL ITEMS IN CORRESPONDING BIN: 
+                        std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type];
+
                         disable_gripper();
-                        osrf_gear::Model curr_model = bin_all_items.at(i);
+
+                        //Find the first product available.
+                        osrf_gear::Model curr_model = bin_all_items.front();
                         ROS_WARN("Product Position Relative to camera:");
                         print_pose(curr_model.pose);
 
