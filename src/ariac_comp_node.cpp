@@ -5,6 +5,7 @@
 #include "osrf_gear/GetMaterialLocations.h"
 #include "osrf_gear/LogicalCameraImage.h"
 #include "osrf_gear/VacuumGripperControl.h"
+#include "osrf_gear/SubmitShipment.h"
 #include "osrf_gear/Model.h"
 #include "geometry_msgs/Pose.h"
 #include <vector>
@@ -45,6 +46,8 @@ std::vector<std::string> JOINT_NAMES{
 //Global Variables
 //Order tracking
 ros::ServiceClient gc_global;
+ros::ServiceClient submitter_global;
+
 int order_count = 0;
 int msg_count = 0;
 std::vector<osrf_gear::Order> order_vector;
@@ -143,6 +146,12 @@ void print_trajectory_points(const trajectory_msgs::JointTrajectory traj)
     ROS_WARN("Done printing");
 }
 
+void print_solutions(double possible_sol[8][6]) {
+    for (int i = 0; i < 8; i++) {
+        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
+    }
+}
+
 // Store the order whenever it is received.
 void order_callback(const osrf_gear::Order::ConstPtr &msg)
 {
@@ -196,7 +205,7 @@ void armJointCallback(
     joint_states = sensor_msgs::JointState(*msg);
 }
 
-//Find the distance of a single solution
+//Find the RMS distance of a single solution
 double dist(double solution[6])
 {
     double result = 0.0;
@@ -319,18 +328,11 @@ int agv_filter(double possible_sol[8][6])
     return 0;
 }
 
-// Find the shortest distance
-int optimal_solution(double possible_sol[8][6], int num_solutions)
-{
+// Choose the solution with the least difference in angles
+int shortest_solution(double possible_sol[8][6]) {
     int min_dist_idx = -1;
     double min_dist = std::numeric_limits<double>::infinity();
-
     for (int i = 0; i < 8; i++)
-    {
-        ROS_WARN("%f, %f, %f, %f, %f, %f", possible_sol[i][0], possible_sol[i][1], possible_sol[i][2], possible_sol[i][3], possible_sol[i][4], possible_sol[i][5]);
-    }
-
-    for (int i = 0; i < num_solutions; i++)
     {
         double temp_dist = dist(possible_sol[i]);
         if (temp_dist < min_dist)
@@ -339,56 +341,7 @@ int optimal_solution(double possible_sol[8][6], int num_solutions)
             min_dist = temp_dist;
         }
     }
-
     return min_dist_idx;
-}
-
-//AUXILIARY METHODS:
-void linear_move(double target_x, double target_y, double target_z, int npts, trajectory_msgs::JointTrajectory &traj)
-{
-    traj.points.resize(npts);
-
-    double curr_pose[4][4];
-    double angles[6] = {joint_states.position[3], joint_states.position[2], joint_states.position[0],
-                        joint_states.position[4], joint_states.position[5], joint_states.position[6]};
-    ur_kinematics::forward(&angles[0], &curr_pose[0][0]);
-    double curr_loc_x = curr_pose[0][3];
-    double curr_loc_y = curr_pose[1][3];
-    double curr_loc_z = curr_pose[2][3];
-    double ray[3]{target_x - curr_loc_x,
-                  target_y - curr_loc_y,
-                  target_z - curr_loc_z};
-    double tr[3] = {ray[0] / npts, ray[1] / npts, ray[2] / npts};
-    trajectory_msgs::JointTrajectoryPoint linear_traj[npts];
-    for (int i = 0; i < npts; i++)
-    {
-        linear_traj[i].positions.resize(7);
-        traj.points[i].positions.resize(7);
-        double intermediate_goal[3] = {curr_loc_x + tr[0] * (i + 1),
-                                       curr_loc_y + tr[1] * (i + 1),
-                                       curr_loc_z + tr[2] * (i + 1)};
-        double q_inter[8][6];
-        double T_inter[4][4];
-
-        T_inter[0][3] = intermediate_goal[0];
-        T_inter[1][3] = intermediate_goal[1];
-        T_inter[2][3] = intermediate_goal[2];
-        T_inter[3][3] = 1.0;
-        T_inter[2][0] = -1.0;
-        T_inter[0][1] = -1.0;
-        T_inter[1][2] = 1.0;
-        ur_kinematics::inverse(&T_inter[0][0], &q_inter[0][0], 0.0);
-        int sol = optimal_solution_index(q_inter);
-        traj.points[i].positions[0] = joint_states.position[1];
-        for (int ii = 0; ii < 6; ii++) //ii=0 -> 5, i = 0 -> 9
-        {
-            traj.points[i].positions[ii + 1] = q_inter[sol][ii];
-        }
-        traj.points[i].time_from_start = ros::Duration(2*i + 1);
-    }
-
-    // traj.points = linear_traj;
-    // return linear_traj;
 }
 
 trajectory_msgs::JointTrajectoryPoint ik_point(geometry_msgs::Pose desired_pose, double height, int duration){
@@ -624,6 +577,9 @@ int main(int argc, char **argv)
     ros::ServiceClient gripper_client = n.serviceClient<osrf_gear::VacuumGripperControl>("ariac/arm1/gripper/control");
     gc_global = gripper_client;
 
+    ros::ServiceClient submit_client = n.serviceClient<osrf_gear::SubmitShipment>("ariac/submit_shipment");
+    submitter_global = submit_client;
+
     //Subscribe to cameras over product bins:
     //ITEMS:
     ros::Subscriber camera_sub_b1 = n.subscribe<osrf_gear::LogicalCameraImage>("/ariac/logical_camera_bin1", 1000, boost::bind(cameraCallback, _1, &items_bin));
@@ -779,8 +735,14 @@ int main(int argc, char **argv)
             ROS_INFO("OUT OF LOOP");
             sleep(10);
 
+            std::string shipment_name = order_vector.front().shipments.front().shipment_type; 
+            std::string destination = order_vector.front().shipments.front().agv_id;
+            
+            
             //Get the first product (first order's first shipment's first product)
             osrf_gear::Product first_product = order_vector.front().shipments.front().products.front();
+
+
 
             //Get the type
             std::string product_type = first_product.type;
@@ -884,6 +846,24 @@ int main(int argc, char **argv)
                 
                 // disable_gripper();
 
+
+                // DROP PART
+
+                // SUBMIT AGV TRAY
+                osrf_gear::SubmitShipment submit_srv;
+                submit_srv.request.destination_id = "1";
+                submit_srv.request.shipment_type = shipment_name;
+                if (submit_client.call(submit_srv)) {
+                    while (!submit_srv.response.success) {
+                        // ROS_INFO("Retrying submission");
+                        submit_client.call(submit_srv);
+                    }
+                    ROS_INFO("Submitted shipment %s", shipment_name.c_str());
+                    ROS_INFO("Inspection Result %f", submit_srv.response.inspection_result);
+                }
+                else {
+                    ROS_WARN("Destination not specified");
+                }
                 // }
             }
             else
