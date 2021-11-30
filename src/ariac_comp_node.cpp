@@ -688,69 +688,70 @@ int main(int argc, char **argv)
              * FIRST CODE TRY, loops through each order, and each subsequent product, locations, etc. Kept for future assignments
              */
             // Loop through each shipment
-            // for(osrf_gear::Shipment shipment : order_vector.front().shipments){ //Loop through all shipments
-            //     //
+            for(osrf_gear::Shipment shipment : order_vector.front().shipments){ //Loop through all shipments
+                //
                 
-            //And each product within
-            for(osrf_gear::Product product : shipment.products){
-                std::string product_type = product.type;
-                ros::spinOnce(); //Update camera information
-                ROS_INFO("One product of type: %s required for shipment...", product_type.c_str());
-                osrf_gear::GetMaterialLocations srv;
-                srv.request.material_type = product_type;
-                // int call_succeeded = material_location_client.call(srv);
-                // ROS_INFO("%d", call_succeeded);
-                if(material_location_client.call(srv)){
-                    //GET THE FIRST NON BELT PRODUCT LOCATION:
-                    std::string product_location;
-                    ROS_INFO("Located In   : %s", product_location.c_str());
-                    for(osrf_gear::StorageUnit unit : srv.response.storage_units){
-                        if(unit.unit_id != "belt"){ // WE ARE NOT REPSONSIBLE FOR THE BELT, get first not belt
-                            product_location = unit.unit_id;
-                            break;
+                //And each product within
+                for(osrf_gear::Product product : shipment.products){
+                    std::string product_type = product.type;
+                    ros::spinOnce();
+                    ROS_INFO("One product of type: %s required for shipment...", product_type.c_str());
+                    osrf_gear::GetMaterialLocations srv;
+                    srv.request.material_type = product_type;
+                    // int call_succeeded = material_location_client.call(srv);
+                    // ROS_INFO("%d", call_succeeded);
+                    if(material_location_client.call(srv)){
+                        //GET THE FIRST NON BELT PRODUCT LOCATION:
+                        std::string product_location;
+                        ROS_INFO("Located In   : %s", product_location.c_str());
+                        for(osrf_gear::StorageUnit unit : srv.response.storage_units){
+                            if(unit.unit_id != "belt"){ // WE ARE NOT REPSONSIBLE FOR THE BELT, get first not belt
+                                product_location = unit.unit_id;
+                                break;
+                            }
                         }
+                        ROS_INFO("Product Location: %s", product_location.c_str());
+
+                        //GET ALL ITEMS IN CORRESPONDING BIN: 
+                        // std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type];
+
+                        disable_gripper();
+
+                        //Find the first product available.
+                        osrf_gear::Model curr_model = items_bin[product_type].front();
+                        // ROS_WARN("Product Position Relative to camera:");
+                        // print_pose(curr_model.pose);
+
+                        // STOWED POSITION
+                        trajectory_msgs::JointTrajectory act_joint_trajectory = base_trajectory(true);
+                        act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+                        send_trajectory(act_joint_trajectory, true);
+
+                        // Convert reference frame into new pose
+                        geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_" + product_location + "_frame");
+                        ROS_WARN("Product Position Relative to arm1:");
+                        print_pose(new_pose);
+
+                        //Reach over the product
+                        trajectory_msgs::JointTrajectory joint_trajectory = base_trajectory(false);
+                        joint_trajectory.points.resize(1);
+                        joint_trajectory.points[0] = ik_point(new_pose, 0.05, 3); // pause above product
+                        joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+                        send_trajectory(joint_trajectory, true);
+
+                        //Pickup the part after we hover over it
+                        pickup_part(new_pose, actuator_position(curr_model.pose, product_location));
+                        
+                        // GO TO STOWED POSITION
+                        act_joint_trajectory = base_trajectory(true);
+                        act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
+                        send_trajectory(act_joint_trajectory, true);
+
+                        place_part("agv1");
+                        
+                        ROS_INFO("Completed first product on order");
+                        // items_bin[product_location] = items_bin[product_location].erase(items_bin[product_location].begin());
                     }
-                    ROS_INFO("Product Location: %s", product_location.c_str());
-
-                    //GET ALL ITEMS IN CORRESPONDING BIN: 
-                    // std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type];
-
-                    disable_gripper();
-
-                    //Find the first product available.
-                    osrf_gear::Model curr_model = items_bin[product_type].front();
-                    // ROS_WARN("Product Position Relative to camera:");
-                    // print_pose(curr_model.pose);
-
-                    // STOWED POSITION
-                    trajectory_msgs::JointTrajectory act_joint_trajectory = base_trajectory(true);
-                    act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
-                    send_trajectory(act_joint_trajectory, true);
-
-                    // Convert reference frame into new pose
-                    geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_" + product_location + "_frame");
-                    ROS_WARN("Product Position Relative to arm1:");
-                    print_pose(new_pose);
-
-                    //Reach over the product
-                    trajectory_msgs::JointTrajectory joint_trajectory = base_trajectory(false);
-                    joint_trajectory.points.resize(1);
-                    joint_trajectory.points[0] = ik_point(new_pose, 0.05, 3); // pause above product
-                    joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
-                    send_trajectory(joint_trajectory, true);
-
-                    //Pickup the part after we hover over it
-                    pickup_part(new_pose, actuator_position(curr_model.pose, product_location));
-                    
-                    // GO TO STOWED POSITION
-                    act_joint_trajectory = base_trajectory(true);
-                    act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
-                    send_trajectory(act_joint_trajectory, true);
-
-                    place_part("agv1");
-                    
-                    ROS_INFO("Completed first product on order");
-                    // items_bin[product_location] = items_bin[product_location].erase(items_bin[product_location].begin());
                 }
             }
 
