@@ -90,7 +90,7 @@ trajectory_msgs::JointTrajectory base_trajectory(bool default_pose){
         joint_trajectory.points[0].positions[5] = 4.7;//1.5
         joint_trajectory.points[0].positions[6] = 0;
 
-        joint_trajectory.points[0].time_from_start = ros::Duration(3);
+        joint_trajectory.points[0].time_from_start = ros::Duration(5);
     }
 
     return joint_trajectory;
@@ -654,6 +654,7 @@ int main(int argc, char **argv)
                 //And each product within
                 for(osrf_gear::Product product : shipment.products){
                     std::string product_type = product.type;
+                    ros::spinOnce();
                     ROS_INFO("One product of type: %s required for shipment...", product_type.c_str());
                     osrf_gear::GetMaterialLocations srv;
                     srv.request.material_type = product_type;
@@ -672,35 +673,33 @@ int main(int argc, char **argv)
                         ROS_INFO("Product Location: %s", product_location.c_str());
 
                         //GET ALL ITEMS IN CORRESPONDING BIN: 
-                        std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type];
+                        // std::vector<osrf_gear::Model> bin_all_items = items_bin[product_type];
 
                         disable_gripper();
 
                         //Find the first product available.
-                        osrf_gear::Model curr_model = bin_all_items.front();
-                        ROS_WARN("Product Position Relative to camera:");
-                        print_pose(curr_model.pose);
+                        osrf_gear::Model curr_model = items_bin[product_type].front();
+                        // ROS_WARN("Product Position Relative to camera:");
+                        // print_pose(curr_model.pose);
 
                         // STOWED POSITION
                         trajectory_msgs::JointTrajectory act_joint_trajectory = base_trajectory(true);
                         act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
                         send_trajectory(act_joint_trajectory, true);
 
-                        // Convert reference frame
-                        geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_bin4_frame");
+                        // Convert reference frame into new pose
+                        geometry_msgs::Pose new_pose = pose_wrt_arm(curr_model.pose, "logical_camera_" + product_location + "_frame");
                         ROS_WARN("Product Position Relative to arm1:");
                         print_pose(new_pose);
 
+                        //Reach over the product
                         trajectory_msgs::JointTrajectory joint_trajectory = base_trajectory(false);
-
-                        //Set the next point to be the optimal ik point
                         joint_trajectory.points.resize(1);
                         joint_trajectory.points[0] = ik_point(new_pose, 0.05, 3); // pause above product
                         joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
-
-                        //TODO FIGURE OUT HOW TO GENERALIZE THIS, PUT AS into global;
                         send_trajectory(joint_trajectory, true);
-                        
+
+                        //Pickup the part after we hover over it
                         pickup_part(new_pose, actuator_position(curr_model.pose, product_location));
                         
                         // GO TO STOWED POSITION
@@ -708,28 +707,10 @@ int main(int argc, char **argv)
                         act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, product_location);
                         send_trajectory(act_joint_trajectory, true);
 
-                        // GO TO AGV1
-                        // act_joint_trajectory = base_trajectory(true);
-                        // act_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, "agv1");
-                        // act_joint_trajectory.points[0].positions[1] = 1.57;
-                        // send_trajectory(act_joint_trajectory, true);
-                        
-                        // // CONVERT FRAME TO LOGICAL CAMERA AGV1
-                        // geometry_msgs::Pose agv_target_pose = pose_wrt_arm(agv_pose["agv1"], "world");
-                        // ROS_WARN("Camera Position Relative to arm1:");
-                        // print_pose(new_pose);
-                        // // ROS_WARN("%f", agv_pose["agv1"].position.x);
-
-                        // trajectory_msgs::JointTrajectory grip_joint_trajectory = base_trajectory(false);
-                        // //Set the next point to be the optimal ik point
-                        // grip_joint_trajectory.points.resize(1);
-                        // grip_joint_trajectory.points[0] = ik_point_2(agv_target_pose, -.4, 10); // pause above product
-                        // grip_joint_trajectory.points[0].positions[0] = actuator_position(curr_model.pose, "agv1");
-                        // print_trajectory_points(grip_joint_trajectory);
-                        // send_trajectory(grip_joint_trajectory, true);
-                        // disable_gripper();
-
                         place_part("agv1");
+                        
+                        ROS_INFO("Completed first product on order");
+                        // items_bin[product_location] = items_bin[product_location].erase(items_bin[product_location].begin());
                     }
                 }
             }
