@@ -412,7 +412,7 @@ trajectory_msgs::JointTrajectoryPoint ik_point_2(geometry_msgs::Pose desired_pos
     //Trajectory Command Message:
     // int q_des_indx = optimal_solution_index(q_des);
     // int q_des_indx = agv_filter(q_des);
-    int q_des_indx = optimal_solution_index(q_des);
+    int q_des_indx = agv_filter(q_des);
 
     //Populate the point
     trajectory_msgs::JointTrajectoryPoint trajectory_point;
@@ -437,7 +437,7 @@ geometry_msgs::Pose pose_wrt_arm(geometry_msgs::Pose product_pose, std::string c
     tf2_ros::TransformListener tf2_listener(tf_buffer);
 
     geometry_msgs::TransformStamped camera_to_base;
-    camera_to_base = tf_buffer.lookupTransform("arm1_base_link", camera, ros::Time(0), ros::Duration(1.0));
+    camera_to_base = tf_buffer.lookupTransform("arm1_base_link", camera, ros::Time(0), ros::Duration(5.0));
 
     //Perform the transform into the correct frame:
     geometry_msgs::Pose new_pose;
@@ -452,7 +452,7 @@ geometry_msgs::Pose pose_wrt_base(geometry_msgs::Pose product_pose, std::string 
     tf2_ros::TransformListener tf2_listener(tf_buffer);
 
     geometry_msgs::TransformStamped camera_to_base;
-    camera_to_base = tf_buffer.lookupTransform("arm1_base", camera, ros::Time(0), ros::Duration(1.0));
+    camera_to_base = tf_buffer.lookupTransform("arm1_base", camera, ros::Time(0), ros::Duration(5.0));
 
     //Perform the transform into the correct frame:
     geometry_msgs::Pose new_pose;
@@ -539,19 +539,21 @@ void place_part (std::string agv_name, geometry_msgs::Pose desired_location){
     //Head to the agv.
     act_joint_trajectory = base_trajectory(true);
     act_joint_trajectory.points[0].positions[0] = bin_pos[agv_name];
-    if (agv_name == "agv1") {
-        act_joint_trajectory.points[0].positions[1] = 1.57;
-    }
-    else if (agv_name == "agv2") {
+    // if (agv_name == "agv1") {
+    act_joint_trajectory.points[0].positions[1] = 1.57;
+    // }
+    if (agv_name == "agv2") {
         act_joint_trajectory.points[0].positions[1] = 4.71;
     }
     ROS_WARN("MOVE TO AGV");
+    print_trajectory_points(act_joint_trajectory);
     send_trajectory(act_joint_trajectory, true);
     
     // CONVERT FRAME TO LOGICAL CAMERA AGV1
     //Put the logical camera frame for agv_pose
     // geometry_msgs::Pose agv_target_pose = pose_wrt_arm(desired_location, TRAY_NAMES[agv_name]);
     ROS_WARN("GET TRANSFORMED POSE");
+    ROS_WARN("%s", TRAY_NAMES[agv_name].c_str());
     geometry_msgs::Pose agv_target_pose = pose_wrt_arm(desired_location, TRAY_NAMES[agv_name]);
     // geometry_msgs::Pose agv_target_pose = pose_wrt_arm(desired_location, "logical_camera_agv1_frame");
     ROS_WARN("Camera Position Relative to arm1:");
@@ -561,7 +563,15 @@ void place_part (std::string agv_name, geometry_msgs::Pose desired_location){
     //Reach out and place it right below the camera
     trajectory_msgs::JointTrajectory grip_joint_trajectory = base_trajectory(false);
     grip_joint_trajectory.points.resize(1);
-    grip_joint_trajectory.points[0] = ik_point_2(agv_target_pose, -.4, 4); // pause above product
+    if(agv_name == "agv1"){
+        ROS_WARN("AGV1");
+        grip_joint_trajectory.points[0] = ik_point_2(agv_target_pose, -.4, 4); // pause above product
+    }
+    else if(agv_name == "agv2"){
+        ROS_WARN("AGV2");
+        grip_joint_trajectory.points[0] = ik_point(agv_target_pose, -.4, 4); // pause above product
+
+    }
     grip_joint_trajectory.points[0].positions[0] = bin_pos[agv_name];
     // print_trajectory_points(grip_joint_trajectory);
     ROS_WARN("SEND TRAJECTORY");
@@ -579,16 +589,18 @@ void place_part (std::string agv_name, geometry_msgs::Pose desired_location){
 
 void submit_shipment(std::string shipment_name, std::string agv_id) {
     ros::ServiceClient submit_client;
-    if (agv_id == "agv1") {
-        submit_client = submit_agv1_global;
-    }
-    else if (agv_id == "agv2") {
+
+    submit_client = submit_agv1_global;
+    // if (agv_id == "agv1") {
+        // submit_client = submit_agv1_global;
+    // }
+    if (agv_id == "agv2") {
         submit_client = submit_agv2_global;
     }
-    else {
-        ROS_WARN("Invalid AGV ID");
-        return;
-    }
+    // else {
+    //     ROS_WARN("Invalid AGV ID");
+    //     // return;
+    // }
     osrf_gear::AGVControl submit_srv;
     submit_srv.request.shipment_type = shipment_name;
     if (submit_client.call(submit_srv)) {
@@ -687,14 +699,19 @@ int main(int argc, char **argv)
     //Define checks
     ros::Rate loop_rate(10);
     // int msg_count = 0;
-
+    int asdf = 0;
     while (ros::ok())
-    {
+    {  
+        if(asdf++ > 1000){
+            ROS_WARN("WE\'ER EFFING DONE Su IT");
+        }
         //Look and see if there are any waiting:
         if (!order_vector.empty() && populated)
         {
             ROS_INFO("------------------------");
             ROS_INFO("Processing Order Begin: ");
+
+            asdf = 0;
 
             /**
              * FIRST CODE TRY, loops through each order, and each subsequent product, locations, etc. Kept for future assignments
@@ -703,6 +720,10 @@ int main(int argc, char **argv)
             for(osrf_gear::Shipment shipment : order_vector.front().shipments){ //Loop through all shipments
                 std::string shipment_name = shipment.shipment_type; 
                 std::string destination = shipment.agv_id;
+
+                if(destination == "any"){
+                    destination = "agv1";
+                }
                 
                 //And each product within
                 for(osrf_gear::Product product : shipment.products){
@@ -716,7 +737,7 @@ int main(int argc, char **argv)
                     if(material_location_client.call(srv)){
                         //GET THE FIRST NON BELT PRODUCT LOCATION:
                         std::string product_location;
-                        ROS_INFO("Located In   : %s", product_location.c_str());
+                        // ROS_INFO("Located In: %s", product_location.c_str());
                         for(osrf_gear::StorageUnit unit : srv.response.storage_units){
                             if(unit.unit_id != "belt"){ // WE ARE NOT REPSONSIBLE FOR THE BELT, get first not belt
                                 product_location = unit.unit_id;
