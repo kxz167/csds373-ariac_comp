@@ -16,7 +16,7 @@ Notes:
 
 ### Block Diagram:
 
-![GitHub Logo](/images/github-logo.png)
+![GitHub Logo](/robo.PNG)
 
 ### Development:
 
