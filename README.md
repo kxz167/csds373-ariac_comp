@@ -11,8 +11,7 @@ Michael Koltisko (mek169)
 Phase 3 and Phase 4 were not tagged as we were already in the required sophisticated environment.
 Notes:
 1) The camera is used as the reference frame for placing the tools on the tray, but it is functional.
-2) We sleep the program as soon as the arm aborts in order to avoid the abort propagation.
-3) 
+2) The program goes on sleep as soon as the arm aborts in order to avoid the abort propagation.
 
 ### Block Diagram:
 
@@ -122,6 +121,8 @@ There are a couple fundamental methods which were created to accomplish the task
     - This patches all trajectory points within a given trajectory
 - ik_point()
     - This method goes ahead and calculates inverse kinematics and creates a trajectory point directly (which can be added to a trajectory)
+- ik_point_2()
+    - This method goes ahead and calculates inverse kinematics and creates a trajectory point directly but with a modified filter.
 
 ### Helper methods:
 
