@@ -1,4 +1,4 @@
-# CSDS 373 Lab 6: Ariac Comp - Order Filling: Direct IK
+# CSDS 373: Ariac Comp - Order Filling: Direct IK
 
 ## Completed by Team 2: 
 
@@ -7,6 +7,16 @@ Sanhita Kumari (sxk1409)\
 Michael Koltisko (mek169)
 
 ## Important information:
+
+Phase 3 and Phase 4 were not tagged as we were already in the required sophisticated environment.
+Notes:
+1) The camera is used as the reference frame for placing the tools on the tray, but it is functional.
+2) We sleep the program as soon as the arm aborts in order to avoid the abort propagation.
+3) 
+
+### Block Diagram:
+
+![GitHub Logo](/images/github-logo.png)
 
 ### Development:
 
@@ -129,6 +139,10 @@ Asside from the core functionality of the lab, other methods were used to genera
     - This transforms poses from certain cameras into the current arm location.
 - send_trajectory()
     - Sends a single trajectory to the action server and waits for response.
+- agv_filter()
+    - Fixes coordinates for agv placement.
+- optimal_solution_index()
+    - Certain angles are filtered depending on location.
 
 ## Auxilery methods:
 Our group had substantial issues with bad behavior of the ariac arm1. These included various segfaults, and collisions with bins or cameras. To try and remedy these problems, we implemented various other methods to try and move the arm accordingly.
