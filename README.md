@@ -81,7 +81,7 @@ source devel/setup.bash
 ```
 
 ## Running:
-Once all of the packages and files have been installed as specified above and set up, the competition environemtn and order information can be began. The following will run the package to start the environment:
+Once all of the packages and files have been installed as specified above and set up, the competition environment and order information can be began. The following will run the package to start the environment:
 
 ``` 
 roslaunch ecse_373_ariac ecse_373_ariac.launch
